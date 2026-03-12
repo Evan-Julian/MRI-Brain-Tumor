@@ -44,18 +44,31 @@ def generate_gradcam(img_batch, model_h5_path):
 
         with tf.GradientTape() as tape:
             last_conv_layer_output, preds = grad_model(img_batch)
+            
+            # PERBAIKAN: Menangani output jika berupa list atau tuple
+            if isinstance(last_conv_layer_output, (list, tuple)):
+                last_conv_layer_output = last_conv_layer_output[0]
+            if isinstance(preds, (list, tuple)):
+                preds = preds[0]
+                
             class_idx = np.argmax(preds[0])
             loss = preds[:, class_idx]
 
         # 4. Hitung Gradien
         grads = tape.gradient(loss, last_conv_layer_output)
+        
+        # Pastikan gradien berhasil dihitung
+        if grads is None:
+            return None, "Gagal menghitung gradien (None)."
+            
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
+        # 5. Kalkulasi Heatmap
         last_conv_layer_output = last_conv_layer_output[0]
         heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
         heatmap = tf.squeeze(heatmap)
 
-        # 5. Normalisasi Heatmap
+        # 6. Normalisasi Heatmap
         heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
         return heatmap.numpy(), None
     except Exception as e:
@@ -105,14 +118,16 @@ if session:
                     
                     if os.path.exists(model_h5):
                         heatmap, err = generate_gradcam(img_batch, model_h5)
-                        if err: st.error(f"Grad-CAM Error: {err}")
+                        if err: 
+                            st.error(f"Grad-CAM Error: {err}")
                     else:
-                        st.warning(f"⚠️ File {model_h5} tidak ditemukan. Pastikan nama file di GitHub persis sama.")
+                        st.warning(f"⚠️ File {model_h5} tidak ditemukan.")
 
                     # 3. TAMPILKAN HASIL
                     st.success(f"### Prediksi: **{label}** ({confidence:.2f}%)")
                     
                     if heatmap is not None:
+                        # Membuat Overlay Heatmap ke Gambar Asli
                         heatmap_resized = cv2.resize(heatmap, (224, 224))
                         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
                         heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
@@ -122,7 +137,7 @@ if session:
                         
                         with col2:
                             st.image(superimposed_img, caption='Grad-CAM (Area Fokus AI)', use_container_width=True)
-                            st.info("💡 Bagian merah menunjukkan area yang menjadi dasar prediksi AI.")
+                            st.info("💡 Area merah menunjukkan bagian yang dianggap AI sebagai ciri tumor.")
                     
                 except Exception as e:
                     st.error(f"Terjadi kesalahan: {e}")
