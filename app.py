@@ -6,97 +6,149 @@ from PIL import Image
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
-    page_title="AI Brain Tumor Diagnostic",
+    page_title="NeuroScan AI | Diagnostic",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- CUSTOM CSS UNTUK TAMPILAN MODERN ---
+# --- INJEKSI CSS UNTUK UI PROFESIONAL ---
 st.markdown("""
     <style>
-    .main {
-        background-color: #f5f7f9;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
     }
+
+    /* Background and Cards */
+    .main {
+        background-color: #f8f9fa;
+    }
+    
+    .stApp {
+        background-color: #f8f9fa;
+    }
+
+    /* Card Style */
+    .metric-card {
+        background-color: white;
+        padding: 24px;
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 20px;
+    }
+
+    /* Analysis Result Header */
+    .result-header {
+        font-size: 14px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+
+    .result-value {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .confidence-value {
+        font-size: 16px;
+        color: #495057;
+        font-weight: 500;
+    }
+
+    /* Custom Button */
     .stButton>button {
         width: 100%;
-        border-radius: 10px;
-        height: 3em;
-        background-color: #007bff;
+        border-radius: 8px;
+        padding: 12px 24px;
+        background-color: #1a73e8;
         color: white;
-        font-weight: bold;
+        border: none;
+        font-weight: 600;
+        transition: all 0.3s;
     }
-    .result-card {
-        padding: 20px;
-        border-radius: 15px;
-        background-color: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        text-align: center;
+
+    .stButton>button:hover {
+        background-color: #1557b0;
+        box-shadow: 0 4px 12px rgba(26,115,232,0.3);
     }
-    .status-tag {
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: 1.2em;
+
+    /* Sidebar info box */
+    .sidebar-box {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #1a73e8;
+        margin-bottom: 15px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOAD MODEL (ONNX ONLY) ---
+# --- LOAD MODEL ---
 @st.cache_resource
 def load_onnx_model():
     try:
         import onnxruntime as ort
         model_path = 'resnet_model.onnx'
-        if not os.path.exists(model_path):
-            return None
-        session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
-        return session
+        if not os.path.exists(model_path): return None
+        return ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
     except:
         return None
 
-# --- SIDEBAR ---
+# --- SIDEBAR NAV ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2491/2491214.png", width=100)
-    st.title("Navigation")
-    st.info("Aplikasi ini menggunakan model **ResNet50** yang dioptimasi dengan ONNX untuk klasifikasi tumor otak melalui citra MRI.")
+    st.markdown("<h2 style='color:#1a73e8;'>NeuroScan AI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:13px; color:#6c757d;'>Medical Imaging Intelligence</p>", unsafe_allow_html=True)
     
+    st.markdown("""
+        <div class="sidebar-box">
+            <small style="color:#1a73e8; font-weight:bold;">SYSTEM STATUS</small><br>
+            <span style="font-size:14px;">ResNet50 Engine Active</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("---")
-    st.subheader("Model Info")
-    st.write("✅ Format: ONNX Runtime")
-    st.write("✅ Arsitektur: ResNet50")
-    st.write("✅ Dataset: Figshare, SARTAJ, Br35H")
+    st.write("**Technical Specs**")
+    st.caption("Architecture: ResNet50")
+    st.caption("Accelerator: ONNX Runtime")
+    st.caption("Dataset: Multi-source MRI")
     
-    if st.button("Clear Cache"):
+    if st.button("System Reset"):
         st.cache_resource.clear()
         st.rerun()
 
-# --- MAIN CONTENT ---
-st.title("🧠 AI Brain Tumor Diagnostic System")
-st.write("Upload hasil scan MRI pasien untuk melakukan analisis deteksi dini.")
+# --- HEADER ---
+st.markdown("<h1 style='font-weight:700;'>MRI Diagnostic Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<p style='color:#6c757d; font-size:18px;'>Analisis klasifikasi citra MRI otomatis berbasis Deep Learning.</p>", unsafe_allow_html=True)
 
 session = load_onnx_model()
 
 if session is None:
-    st.error("❌ Sistem gagal memuat model. Pastikan 'resnet_model.onnx' tersedia di direktori.")
+    st.error("SYSTEM ERROR: Model file 'resnet_model.onnx' not found.")
 else:
-    col1, col2 = st.columns([1, 1], gap="large")
+    # Grid Layout
+    col_input, col_output = st.columns([1, 1], gap="large")
 
-    with col1:
-        st.subheader("📂 Input Citra MRI")
-        uploaded_file = st.file_uploader("Drop image here or browse", type=["jpg", "png", "jpeg"])
+    with col_input:
+        st.markdown("<h4 style='font-weight:600; margin-bottom:20px;'>Upload Patient Records</h4>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("", type=["jpg", "png", "jpeg"])
         
         if uploaded_file:
             image = Image.open(uploaded_file).convert('RGB')
-            st.image(image, caption='Gambar terpilih', use_container_width=True)
+            st.image(image, use_container_width=True)
             
-            analyze_btn = st.button('🚀 Mulai Analisis Otomatis')
+            analyze_btn = st.button('Run Diagnostic Analysis')
 
-    with col2:
-        st.subheader("📊 Hasil Diagnosis")
+    with col_output:
+        st.markdown("<h4 style='font-weight:600; margin-bottom:20px;'>Diagnostic Report</h4>", unsafe_allow_html=True)
         
         if uploaded_file and analyze_btn:
-            with st.spinner('AI sedang menganalisis pola citra...'):
+            with st.spinner('Processing neural network...'):
                 try:
                     # Preprocessing
                     img_224 = image.resize((224, 224))
@@ -107,43 +159,51 @@ else:
                     img_array[:, :, 2] -= 123.68
                     img_batch = np.expand_dims(img_array, axis=0)
 
-                    # Prediksi
+                    # Prediction
                     input_name = session.get_inputs()[0].name
                     output = session.run(None, {input_name: img_batch})[0]
                     
-                    # Logika Label
                     CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
                     pred_idx = int(np.argmax(output[0]))
                     confidence = float(np.max(output[0])) * 100
                     label = CLASS_NAMES.get(pred_idx, "Unknown")
+                    
+                    # Warna indikator
+                    res_color = "#28a745" if "No Tumor" in label else "#d93025"
 
-                    # Tampilan Hasil Utama
+                    # Card Result
                     st.markdown(f"""
-                        <div class="result-card">
-                            <p style="color: #666; margin-bottom: 5px;">Klasifikasi Terdeteksi:</p>
-                            <h2 style="color: {'#28a745' if 'No Tumor' in label else '#dc3545'};">{label}</h2>
-                            <p style="font-size: 1.1em;">Tingkat Keyakinan: <b>{confidence:.2f}%</b></p>
+                        <div class="metric-card">
+                            <div class="result-header">Diagnosis Result</div>
+                            <div class="result-value" style="color: {res_color};">{label.upper()}</div>
+                            <div class="confidence-value">Confidence Level: {confidence:.2f}%</div>
                         </div>
                     """, unsafe_allow_html=True)
 
-                    if "No Tumor" in label:
-                        st.balloons()
+                    st.markdown("<p style='font-weight:600; font-size:14px; margin-top:30px;'>PROBABILITY DISTRIBUTION</p>", unsafe_allow_html=True)
                     
-                    st.markdown("---")
-                    st.write("**Probabilitas Detail:**")
-                    
-                    # Visualisasi Bar untuk semua kelas
+                    # Progress bars
                     for i, prob in enumerate(output[0]):
-                        name = CLASS_NAMES.get(i, f"Kelas {i}")
+                        name = CLASS_NAMES.get(i, f"Class {i}")
                         val = max(0.0, min(float(prob), 1.0))
-                        st.write(f"{name} ({val*100:.1f}%)")
-                        st.progress(val)
+                        
+                        cols = st.columns([3, 7])
+                        cols[0].caption(name)
+                        cols[1].progress(val)
 
                 except Exception as e:
-                    st.error(f"Terjadi kesalahan teknis: {e}")
+                    st.error(f"Inference Error: {e}")
         else:
-            st.info("Silakan unggah gambar dan klik tombol analisis untuk melihat hasil.")
+            st.markdown("""
+                <div style='text-align:center; padding: 100px 20px; border: 2px dashed #e9ecef; border-radius:12px;'>
+                    <p style='color:#adb5bd;'>Waiting for patient data upload...</p>
+                </div>
+            """, unsafe_allow_html=True)
 
 # --- FOOTER ---
-st.markdown("---")
-st.caption("Aplikasi ini merupakan bagian dari Proyek Skripsi. Hasil prediksi bersifat informatif dan harus dikonfirmasi oleh tenaga medis profesional.")
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("""
+    <div style='border-top: 1px solid #e9ecef; padding-top: 20px; color: #adb5bd; font-size: 12px; text-align: center;'>
+        NeuroScan AI v1.0 | IEEE Journal Documentation Reference | For Research Use Only
+    </div>
+""", unsafe_allow_html=True)
