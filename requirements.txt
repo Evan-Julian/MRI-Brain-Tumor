@@ -1,7 +1,6 @@
 streamlit
-tensorflow
-scikit-learn
-pillow
+tensorflow-cpu
 numpy
-keras
-onnxruntime
+pillow
+opencv-python-headless
+scikit-learn
