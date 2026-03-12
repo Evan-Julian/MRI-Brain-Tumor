@@ -24,10 +24,11 @@ def load_onnx_model():
 def generate_gradcam(img_batch, model_h5_path):
     try:
         import tensorflow as tf
-        # 1. Load Model H5
-        model = tf.keras.models.load_model(model_h5_path)
         
-        # 2. Cari layer konvolusi terakhir
+        # 1. Load Model
+        model = tf.keras.models.load_model(model_h5_path, compile=False)
+        
+        # 2. Identifikasi Layer Konvolusi Terakhir
         last_conv_layer_name = None
         for layer in reversed(model.layers):
             if isinstance(layer, tf.keras.layers.Conv2D):
@@ -35,47 +36,46 @@ def generate_gradcam(img_batch, model_h5_path):
                 break
         
         if not last_conv_layer_name:
-            return None, "Layer konvolusi tidak ditemukan."
+            return None, "Layer Conv2D tidak ditemukan."
 
-        # 3. Buat Grad-Model
-        # Kita pastikan mengambil .output secara eksplisit
+        # 3. Bangun Grad-Model dengan penanganan output eksplisit
         last_conv_layer = model.get_layer(last_conv_layer_name)
         grad_model = tf.keras.models.Model(
             inputs=[model.inputs],
             outputs=[last_conv_layer.output, model.output]
         )
 
-        with tf.GradientTape() as tape:
-            # Jalankan model
-            conv_outputs, predictions = grad_model(img_batch)
-            
-            # --- FIX RADIKAL UNTUK TUPLE ERROR ---
-            # Jika output masih berbentuk list/tuple bersarang, bongkar sampai ketemu tensornya
-            while isinstance(conv_outputs, (list, tuple)):
-                conv_outputs = conv_outputs[0]
-            while isinstance(predictions, (list, tuple)):
-                predictions = predictions[0]
-            
-            # Ambil skor untuk kelas tertinggi
-            class_idx = np.argmax(predictions[0])
-            loss = predictions[:, class_idx]
+        # 4. Hitung Gradient dengan perlakuan khusus Tensor
+        @tf.function
+        def get_grads(inputs):
+            with tf.GradientTape() as tape:
+                conv_out, preds = grad_model(inputs)
+                # Bongkar tuple jika ada
+                if isinstance(conv_out, (list, tuple)): conv_out = conv_out[0]
+                if isinstance(preds, (list, tuple)): preds = preds[0]
+                
+                class_idx = tf.argmax(preds[0])
+                loss = preds[:, class_idx]
+            return tape.gradient(loss, conv_out), conv_out
 
-        # 4. Hitung Gradien
-        grads = tape.gradient(loss, conv_outputs)
-        
+        grads, conv_outputs = get_grads(img_batch)
+
         if grads is None:
-            return None, "Gagal menghitung gradien. Pastikan model tidak dalam mode inference-only."
+            return None, "Gradient bernilai None. Pastikan layer tidak 'frozen'."
 
-        # Global Average Pooling pada gradien
-        pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-        # 5. Kalkulasi Heatmap
-        # conv_outputs[0] untuk menghilangkan dimensi batch
-        heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
+        # 5. Global Average Pooling pada gradien
+        # Menangani dimensi secara dinamis untuk menghindari error 'None' shape
+        weights = tf.reduce_mean(grads, axis=(0, 1, 2))
+        
+        # 6. Kalkulasi Heatmap
+        # conv_outputs[0] adalah (7, 7, 2048)
+        # weights adalah (2048,)
+        heatmap = conv_outputs[0] @ weights[..., tf.newaxis]
         heatmap = tf.squeeze(heatmap)
 
-        # 6. Normalisasi Heatmap 0 ke 1
+        # 7. Normalisasi Heatmap 0 ke 1
         heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
+        
         return heatmap.numpy(), None
         
     except Exception as e:
@@ -103,23 +103,23 @@ if session:
         if st.button('Mulai Analisis & Visualisasi', use_container_width=True):
             with st.spinner('Sedang menganalisis area tumor...'):
                 try:
-                    # PREPROCESSING (Sesuai Colab: BGR & Mean Subtraction)
+                    # PREPROCESSING (Sesuai dataset Anda: BGR & Mean Subtraction)
                     img_224 = image.resize((224, 224))
                     img_array = np.array(img_224).astype('float32')
-                    img_array = img_array[:, :, ::-1] # RGB -> BGR
+                    img_array = img_array[:, :, ::-1] # Konversi ke BGR
                     img_array[:, :, 0] -= 103.939
                     img_array[:, :, 1] -= 116.779
                     img_array[:, :, 2] -= 123.68
                     img_batch = np.expand_dims(img_array, axis=0)
 
-                    # 1. PREDIKSI UTAMA (Menggunakan ONNX untuk Kecepatan)
+                    # 1. PREDIKSI (ONNX)
                     input_name = session.get_inputs()[0].name
                     output = session.run(None, {input_name: img_batch})[0]
                     pred_idx = int(np.argmax(output[0]))
                     confidence = float(np.max(output[0])) * 100
                     label = CLASS_NAMES.get(pred_idx, "Unknown")
 
-                    # 2. GRAD-CAM (Visualisasi area fokus AI)
+                    # 2. GRAD-CAM
                     model_h5 = 'best_resnet_20260307-162330.h5' 
                     heatmap = None
                     
@@ -128,7 +128,7 @@ if session:
                         if err: 
                             st.error(f"Grad-CAM Error: {err}")
                     else:
-                        st.warning(f"⚠️ File model h5 tidak ditemukan.")
+                        st.warning(f"⚠️ File {model_h5} tidak ditemukan.")
 
                     # 3. TAMPILKAN HASIL
                     st.success(f"### Prediksi: **{label}** ({confidence:.2f}%)")
@@ -145,7 +145,7 @@ if session:
                         
                         with col2:
                             st.image(superimposed_img, caption='Hasil Grad-CAM', use_container_width=True)
-                            st.info("💡 Area merah/kuning menunjukkan bagian yang paling diperhatikan AI.")
+                            st.info("💡 Area merah menunjukkan bagian yang dideteksi AI sebagai ciri tumor.")
                     
                 except Exception as e:
                     st.error(f"Terjadi kesalahan: {e}")
