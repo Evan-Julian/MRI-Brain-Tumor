@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from PIL import Image
 
-# Set page config di awal
+# Set page config
 st.set_page_config(page_title="Brain Tumor Classification", page_icon="🧠", layout="centered")
 
 @st.cache_resource
@@ -23,12 +23,11 @@ def load_onnx_model():
 
 def generate_gradcam(img_batch, model_h5_path):
     try:
-        import tensorflow as tf # Import di dalam agar tidak berat di awal
-        
+        import tensorflow as tf
         # 1. Load Model H5
         model = tf.keras.models.load_model(model_h5_path)
         
-        # 2. Cari layer konvolusi terakhir (ResNet50 biasanya 'conv5_block3_out')
+        # 2. Cari layer konvolusi terakhir secara otomatis
         last_conv_layer_name = None
         for layer in reversed(model.layers):
             if isinstance(layer, tf.keras.layers.Conv2D):
@@ -100,21 +99,20 @@ if session:
                     confidence = float(np.max(output[0])) * 100
                     label = CLASS_NAMES.get(pred_idx, "Unknown")
 
-                    # 2. GRAD-CAM (Gunakan nama file yang benar dari repo Anda)
-                    model_h5 = 'best_resnet50_model_mri_version_1.h5' 
+                    # 2. GRAD-CAM (NAMA FILE DISESUAIKAN)
+                    model_h5 = 'best_resnet_20260307-162330.h5' 
                     heatmap = None
                     
                     if os.path.exists(model_h5):
                         heatmap, err = generate_gradcam(img_batch, model_h5)
                         if err: st.error(f"Grad-CAM Error: {err}")
                     else:
-                        st.warning(f"⚠️ File {model_h5} tidak ditemukan. Pastikan file .h5 ada di folder utama GitHub Anda.")
+                        st.warning(f"⚠️ File {model_h5} tidak ditemukan. Pastikan nama file di GitHub persis sama.")
 
                     # 3. TAMPILKAN HASIL
                     st.success(f"### Prediksi: **{label}** ({confidence:.2f}%)")
                     
                     if heatmap is not None:
-                        # Overlay Heatmap ke Gambar Asli
                         heatmap_resized = cv2.resize(heatmap, (224, 224))
                         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
                         heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
@@ -124,7 +122,7 @@ if session:
                         
                         with col2:
                             st.image(superimposed_img, caption='Grad-CAM (Area Fokus AI)', use_container_width=True)
-                            st.info("💡 Bagian berwarna merah menunjukkan area yang dideteksi AI sebagai ciri tumor.")
+                            st.info("💡 Bagian merah menunjukkan area yang menjadi dasar prediksi AI.")
                     
                 except Exception as e:
                     st.error(f"Terjadi kesalahan: {e}")
