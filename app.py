@@ -27,7 +27,7 @@ def generate_gradcam(img_batch, model_h5_path):
         # 1. Load Model H5
         model = tf.keras.models.load_model(model_h5_path)
         
-        # 2. Cari layer konvolusi terakhir secara otomatis
+        # 2. Cari layer konvolusi terakhir
         last_conv_layer_name = None
         for layer in reversed(model.layers):
             if isinstance(layer, tf.keras.layers.Conv2D):
@@ -37,42 +37,49 @@ def generate_gradcam(img_batch, model_h5_path):
         if not last_conv_layer_name:
             return None, "Layer konvolusi tidak ditemukan."
 
-        # 3. Model untuk gradien
+        # 3. Buat Grad-Model
+        # Kita pastikan mengambil .output secara eksplisit
+        last_conv_layer = model.get_layer(last_conv_layer_name)
         grad_model = tf.keras.models.Model(
-            [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output]
+            inputs=[model.inputs],
+            outputs=[last_conv_layer.output, model.output]
         )
 
         with tf.GradientTape() as tape:
-            last_conv_layer_output, preds = grad_model(img_batch)
+            # Jalankan model
+            conv_outputs, predictions = grad_model(img_batch)
             
-            # PERBAIKAN: Menangani output jika berupa list atau tuple
-            if isinstance(last_conv_layer_output, (list, tuple)):
-                last_conv_layer_output = last_conv_layer_output[0]
-            if isinstance(preds, (list, tuple)):
-                preds = preds[0]
-                
-            class_idx = np.argmax(preds[0])
-            loss = preds[:, class_idx]
+            # --- FIX RADIKAL UNTUK TUPLE ERROR ---
+            # Jika output masih berbentuk list/tuple bersarang, bongkar sampai ketemu tensornya
+            while isinstance(conv_outputs, (list, tuple)):
+                conv_outputs = conv_outputs[0]
+            while isinstance(predictions, (list, tuple)):
+                predictions = predictions[0]
+            
+            # Ambil skor untuk kelas tertinggi
+            class_idx = np.argmax(predictions[0])
+            loss = predictions[:, class_idx]
 
         # 4. Hitung Gradien
-        grads = tape.gradient(loss, last_conv_layer_output)
+        grads = tape.gradient(loss, conv_outputs)
         
-        # Pastikan gradien berhasil dihitung
         if grads is None:
-            return None, "Gagal menghitung gradien (None)."
-            
+            return None, "Gagal menghitung gradien. Pastikan model tidak dalam mode inference-only."
+
+        # Global Average Pooling pada gradien
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
         # 5. Kalkulasi Heatmap
-        last_conv_layer_output = last_conv_layer_output[0]
-        heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
+        # conv_outputs[0] untuk menghilangkan dimensi batch
+        heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
         heatmap = tf.squeeze(heatmap)
 
-        # 6. Normalisasi Heatmap
+        # 6. Normalisasi Heatmap 0 ke 1
         heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
         return heatmap.numpy(), None
+        
     except Exception as e:
-        return None, str(e)
+        return None, f"Detail Error: {str(e)}"
 
 # Konfigurasi Label
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
@@ -96,23 +103,23 @@ if session:
         if st.button('Mulai Analisis & Visualisasi', use_container_width=True):
             with st.spinner('Sedang menganalisis area tumor...'):
                 try:
-                    # PREPROCESSING (ResNet Standard)
+                    # PREPROCESSING (Sesuai Colab: BGR & Mean Subtraction)
                     img_224 = image.resize((224, 224))
                     img_array = np.array(img_224).astype('float32')
-                    img_array = img_array[:, :, ::-1] # Konversi ke BGR
+                    img_array = img_array[:, :, ::-1] # RGB -> BGR
                     img_array[:, :, 0] -= 103.939
                     img_array[:, :, 1] -= 116.779
                     img_array[:, :, 2] -= 123.68
                     img_batch = np.expand_dims(img_array, axis=0)
 
-                    # 1. PREDIKSI (ONNX)
+                    # 1. PREDIKSI UTAMA (Menggunakan ONNX untuk Kecepatan)
                     input_name = session.get_inputs()[0].name
                     output = session.run(None, {input_name: img_batch})[0]
                     pred_idx = int(np.argmax(output[0]))
                     confidence = float(np.max(output[0])) * 100
                     label = CLASS_NAMES.get(pred_idx, "Unknown")
 
-                    # 2. GRAD-CAM (NAMA FILE DISESUAIKAN)
+                    # 2. GRAD-CAM (Visualisasi area fokus AI)
                     model_h5 = 'best_resnet_20260307-162330.h5' 
                     heatmap = None
                     
@@ -121,23 +128,24 @@ if session:
                         if err: 
                             st.error(f"Grad-CAM Error: {err}")
                     else:
-                        st.warning(f"⚠️ File {model_h5} tidak ditemukan.")
+                        st.warning(f"⚠️ File model h5 tidak ditemukan.")
 
                     # 3. TAMPILKAN HASIL
                     st.success(f"### Prediksi: **{label}** ({confidence:.2f}%)")
                     
                     if heatmap is not None:
-                        # Membuat Overlay Heatmap ke Gambar Asli
+                        # Resizing dan coloring heatmap
                         heatmap_resized = cv2.resize(heatmap, (224, 224))
                         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
                         heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
                         
+                        # Gabungkan dengan gambar asli (Overlay)
                         original_img = np.array(img_224)
                         superimposed_img = cv2.addWeighted(original_img, 0.6, heatmap_color, 0.4, 0)
                         
                         with col2:
-                            st.image(superimposed_img, caption='Grad-CAM (Area Fokus AI)', use_container_width=True)
-                            st.info("💡 Area merah menunjukkan bagian yang dianggap AI sebagai ciri tumor.")
+                            st.image(superimposed_img, caption='Hasil Grad-CAM', use_container_width=True)
+                            st.info("💡 Area merah/kuning menunjukkan bagian yang paling diperhatikan AI.")
                     
                 except Exception as e:
                     st.error(f"Terjadi kesalahan: {e}")
