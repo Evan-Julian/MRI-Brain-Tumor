@@ -1,7 +1,7 @@
 streamlit
 tensorflow-cpu
+onnxruntime
 numpy<2.0.0
 pillow
 opencv-python-headless
-scikit-learn
-onnxruntime
+matplotlib
