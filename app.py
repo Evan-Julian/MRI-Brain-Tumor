@@ -2,7 +2,6 @@ import os
 import streamlit as st
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 from PIL import Image
 import tensorflow as tf
 
@@ -22,32 +21,45 @@ def load_onnx_model():
         st.error(f"⚠️ Error ONNX: {e}")
         return None
 
-# Fungsi untuk Grad-CAM (Menggunakan TF karena butuh akses ke layer gradien)
-def generate_gradcam(img_batch, model_h5_path='best_resnet50_model.h5'):
+def generate_gradcam(img_batch, model_h5_path):
     try:
-        # Load model h5 untuk akses layer
+        # 1. Load Model H5
         model = tf.keras.models.load_model(model_h5_path)
-        last_conv_layer_name = "conv5_block3_out" # Layer terakhir ResNet50
         
+        # 2. Cari layer konvolusi terakhir secara otomatis
+        last_conv_layer = None
+        for layer in reversed(model.layers):
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                last_conv_layer = layer
+                break
+        
+        if not last_conv_layer:
+            return None, "Tidak menemukan layer Conv2D"
+
+        # 3. Buat Gradient Model
         grad_model = tf.keras.models.Model(
-            [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output]
+            [model.inputs], [last_conv_layer.output, model.output]
         )
 
         with tf.GradientTape() as tape:
             last_conv_layer_output, preds = grad_model(img_batch)
-            class_channel = preds[:, np.argmax(preds[0])]
+            class_idx = np.argmax(preds[0])
+            loss = preds[:, class_idx]
 
-        grads = tape.gradient(class_channel, last_conv_layer_output)
+        # 4. Hitung Gradient
+        grads = tape.gradient(loss, last_conv_layer_output)
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
+        # 5. Kalkulasi Heatmap
         last_conv_layer_output = last_conv_layer_output[0]
         heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
         heatmap = tf.squeeze(heatmap)
 
-        heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
-        return heatmap.numpy()
+        # 6. Normalisasi
+        heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
+        return heatmap.numpy(), None
     except Exception as e:
-        return None
+        return None, str(e)
 
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 
@@ -68,12 +80,13 @@ if session:
             st.image(image, caption='Gambar Asli', use_container_width=True)
 
         if st.button('Mulai Analisis & Visualisasi', use_container_width=True):
-            with st.spinner('Sedang menganalisis area tumor...'):
+            with st.spinner('Sedang menganalisis...'):
                 try:
                     # Preprocessing
                     img_224 = image.resize((224, 224))
                     img_array = np.array(img_224).astype('float32')
-                    img_array = img_array[:, :, ::-1] # BGR
+                    # Preprocessing ResNet50 (BGR & Mean Subtraction)
+                    img_array = img_array[:, :, ::-1]
                     img_array[:, :, 0] -= 103.939
                     img_array[:, :, 1] -= 116.779
                     img_array[:, :, 2] -= 123.68
@@ -86,16 +99,21 @@ if session:
                     confidence = float(np.max(output[0])) * 100
                     label = CLASS_NAMES.get(pred_idx, "Unknown")
 
-                    # 2. Grad-CAM (Hanya jika file .h5 tersedia di repo)
+                    # 2. Grad-CAM Logic
+                    model_h5 = 'best_resnet50_model.h5' # Pastikan nama file ini sama di GitHub!
                     heatmap = None
-                    if os.path.exists('best_resnet50_model.h5'):
-                        heatmap = generate_gradcam(img_batch, 'best_resnet50_model.h5')
+                    
+                    if os.path.exists(model_h5):
+                        heatmap, err = generate_gradcam(img_batch, model_h5)
+                        if err: st.warning(f"Grad-CAM Error: {err}")
+                    else:
+                        st.warning(f"⚠️ File {model_h5} tidak ditemukan di repo. Grad-CAM tidak bisa dimunculkan.")
 
                     # 3. Tampilkan Hasil
                     st.success(f"### Prediksi: **{label}** ({confidence:.2f}%)")
                     
                     if heatmap is not None:
-                        # Overlay Heatmap
+                        # Membuat Overlay Heatmap
                         heatmap_resized = cv2.resize(heatmap, (224, 224))
                         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
                         heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
@@ -108,4 +126,4 @@ if session:
                             st.info("💡 Area merah menunjukkan bagian yang paling mempengaruhi keputusan AI.")
                     
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error Utama: {e}")
