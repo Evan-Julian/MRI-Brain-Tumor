@@ -27,7 +27,6 @@ def create_pdf(results):
     pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align='C')
     pdf.ln(10)
 
-    # Summary Table Header
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Arial", 'B', 10)
     pdf.cell(80, 10, "Filename", 1, 0, 'C', True)
@@ -45,10 +44,10 @@ def create_pdf(results):
     pdf.multi_cell(0, 5, "CONFIDENTIAL: This document is generated for medical research documentation. ResNet50 Architecture Inference.")
     return pdf.output(dest='S').encode('latin-1')
 
-# --- INJEKSI CSS CUSTOM (CYBER DARK UI) ---
+# --- INJEKSI CSS CUSTOM (MINIMALIST CYBER DARK) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Inter:wght@400;700&display=swap');
     
     /* Global Styles */
     html, body, [class*="css"], .stApp {
@@ -57,61 +56,94 @@ st.markdown("""
         color: #E6EDF3 !important;
     }
 
+    /* Sidepanel Font Refinement */
+    [data-testid="stSidebar"] {
+        background-color: #010409 !important;
+        border-right: 1px solid #30363D;
+    }
+    
+    [data-testid="stSidebar"] .stMarkdown p {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #8B949E !important;
+    }
+
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h3 {
+        letter-spacing: 0.5px;
+    }
+
     /* Result Card Glassmorphism */
     .result-card {
         background: rgba(22, 27, 34, 0.7);
         backdrop-filter: blur(10px);
         padding: 24px;
         border-radius: 20px;
-        border: 1px solid rgba(88, 166, 255, 0.2);
+        border: 1px solid rgba(88, 166, 255, 0.15);
         margin-bottom: 20px;
-        transition: 0.4s ease;
+        transition: 0.3s ease;
     }
     .result-card:hover {
         border-color: #58A6FF;
-        box-shadow: 0 0 20px rgba(88, 166, 255, 0.15);
-        transform: translateY(-5px);
+        box-shadow: 0 0 15px rgba(88, 166, 255, 0.1);
     }
 
-    /* Stat Box Header */
+    /* Numeric Stat Boxes */
     .stat-box {
-        background: linear-gradient(145deg, #0D1117, #161B22);
+        background: #0D1117;
         padding: 20px;
         border-radius: 15px;
         border: 1px solid #30363D;
         text-align: center;
     }
+    .stat-box h2 {
+        font-family: 'Inter', sans-serif;
+        color: #58A6FF !important;
+        font-weight: 700 !important;
+    }
+    .stat-box small {
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #8B949E;
+        font-weight: 600;
+    }
+
+    /* CSS Icons Style */
+    .icon-status {
+        height: 10px;
+        width: 10px;
+        background-color: #238636;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        box-shadow: 0 0 8px #238636;
+    }
 
     /* Primary Buttons */
     .stButton>button {
         width: 100%;
-        border-radius: 12px;
-        padding: 18px;
-        background: linear-gradient(90deg, #1A73E8 0%, #0052D1 100%) !important;
+        border-radius: 8px;
+        padding: 14px;
+        background: #1F6FEB !important;
         color: white !important;
-        font-weight: 700;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 1.2px;
         border: none;
-        box-shadow: 0 4px 15px rgba(26, 115, 232, 0.3);
+        transition: 0.2s;
+        font-size: 14px;
+    }
+    .stButton>button:hover {
+        background: #388BFD !important;
+        box-shadow: 0 0 20px rgba(31, 111, 235, 0.3);
     }
 
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #010409 !important;
-        border-right: 1px solid #30363D;
+    /* File Uploader Custom Text */
+    [data-testid="stFileUploadDropzone"] div div span {
+        font-size: 14px;
+        color: #8B949E !important;
     }
 
-    /* Progress Bar Neon */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #58A6FF, #00D4FF) !important;
-    }
-
-    /* Titles */
-    h1, h2, h3 {
-        letter-spacing: -1px;
-        font-weight: 800 !important;
-    }
+    h1, h2, h3 { letter-spacing: -1px; font-weight: 800 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -127,48 +159,52 @@ def load_onnx_model():
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h1 style='color:#58A6FF;'>NEUROSCAN</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#8B949E; font-size:12px; margin-top:-15px;'>Enterprise Medical AI v1.6</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#58A6FF; font-size: 24px;'>NEUROSCAN</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='margin-top:-15px; font-weight: 600;'>System Diagnostic v1.7</p>", unsafe_allow_html=True)
     st.markdown("---")
     
-    st.markdown("### 🛠️ Hardware Info")
-    st.caption("Engine: ONNX Runtime")
-    st.caption("Backend: ResNet50 CPU-Inference")
+    st.markdown("### SYSTEM LOGS")
+    st.markdown("""
+        <div style="margin-bottom: 10px;">
+            <span class="icon-status"></span> <span style="font-size:13px; color:#E6EDF3;">Inference Engine: Active</span>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <span class="icon-status" style="background-color:#58A6FF; box-shadow: 0 0 8px #58A6FF;"></span> <span style="font-size:13px; color:#E6EDF3;">Backend: ONNX Optimized</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<p style='font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #8B949E !important; font-weight: 700;'>Technical Parameters</p>", unsafe_allow_html=True)
+    st.markdown("- Arch: ResNet50<br>- Input: 224x224 RGB<br>- Threads: Multi-Core", unsafe_allow_html=True)
     
-    st.markdown("---")
-    if st.button("🔄 REFRESH ENGINE"):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("RESET ENGINE"):
         st.cache_resource.clear()
         st.rerun()
 
 # --- MAIN HEADER ---
 st.markdown("<h1>Batch Neural Analysis</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#8B949E; font-size:16px;'>Clinical-grade automated tumor classification for multiple MRI sequences.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#8B949E; font-size:15px;'>Automated multi-sequence MRI classification system for neuro-pathological research.</p>", unsafe_allow_html=True)
 
 session = load_onnx_model()
 
 if session is None:
-    st.error("FATAL: resnet_model.onnx not detected.")
+    st.error("SYSTEM ERROR: resnet_model.onnx not found.")
 else:
-    # Uploader Section
     uploaded_files = st.file_uploader("", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
 
     if uploaded_files:
-        if st.button(f'⚡ EXECUTE DIAGNOSTIC ON {len(uploaded_files)} FILES'):
+        if st.button(f'RUN ANALYSIS ON {len(uploaded_files)} SCANS'):
             all_results = []
-            
-            # --- START BATCH PROCESS ---
             container = st.container()
             with container:
-                st.markdown("### 📊 Inference Statistics")
+                st.markdown("### ANALYSIS METRICS")
                 stat_col1, stat_col2, stat_col3 = st.columns(3)
                 
-                placeholder_grid = st.empty()
                 results_grid = st.container()
-                
                 total_start = time.time()
                 
                 with results_grid:
-                    ui_cols = st.columns(3) # Grid 3 Kolom agar lebih compact
+                    ui_cols = st.columns(3)
                     
                     for idx, uploaded_file in enumerate(uploaded_files):
                         image = Image.open(uploaded_file).convert('RGB')
@@ -182,9 +218,7 @@ else:
                         img_array[:, :, 2] -= 123.68
                         img_batch = np.expand_dims(img_array, axis=0)
 
-                        # Run AI
-                        input_name = session.get_inputs()[0].name
-                        output = session.run(None, {input_name: img_batch})[0]
+                        output = session.run(None, {session.get_inputs()[0].name: img_batch})[0]
                         
                         CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
                         pred_idx = int(np.argmax(output[0]))
@@ -197,40 +231,38 @@ else:
                             'confidence': confidence
                         })
 
-                        # Grid UI
                         with ui_cols[idx % 3]:
                             st.markdown(f"""
                                 <div class="result-card">
-                                    <small style="color:#8B949E;">SCAN #{idx+1}</small>
-                                    <h3 style="color:#58A6FF; margin:5px 0; font-size:20px;">{label.upper()}</h3>
-                                    <p style="font-size:13px; margin:0;">Accuracy: <b>{confidence:.1f}%</b></p>
+                                    <p style="font-size:10px; color:#8B949E; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Scan Sequence {idx+1}</p>
+                                    <h3 style="color:#58A6FF; margin:0; font-size:18px;">{label.upper()}</h3>
+                                    <p style="font-family:'Inter'; font-size:14px; margin-top:4px;">Accuracy: {confidence:.1f}%</p>
                                 </div>
                             """, unsafe_allow_html=True)
                             st.image(image, use_container_width=True)
 
                 total_time = time.time() - total_start
                 
-                # Update Stats
-                stat_col1.markdown(f"<div class='stat-box'><small>TOTAL FILES</small><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
-                stat_col2.markdown(f"<div class='stat-box'><small>AVG CONFIDENCE</small><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
-                stat_col3.markdown(f"<div class='stat-box'><small>TOTAL TIME</small><h2>{total_time:.2f}s</h2></div>", unsafe_allow_html=True)
+                # Update Stats with Inter Font
+                stat_col1.markdown(f"<div class='stat-box'><small>SCANS</small><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
+                stat_col2.markdown(f"<div class='stat-box'><small>AVG CONF</small><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
+                stat_col3.markdown(f"<div class='stat-box'><small>LATENCY</small><h2>{total_time:.2f}s</h2></div>", unsafe_allow_html=True)
 
-            # --- REPORT SECTION ---
             st.markdown("---")
             pdf_data = create_pdf(all_results)
             st.download_button(
-                label="📥 DOWNLOAD CLINICAL SUMMARY REPORT",
+                label="EXPORT DIAGNOSTIC REPORT (PDF)",
                 data=pdf_data,
-                file_name=f"Batch_Report_{datetime.now().strftime('%H%M')}.pdf",
+                file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf",
                 mime="application/pdf"
             )
     else:
         st.markdown("""
-            <div style='text-align:center; padding: 120px 20px; border: 2px dashed #30363D; border-radius:30px; background-color: #0D1117; margin-top:50px;'>
-                <h2 style='color:#58A6FF; margin-bottom:10px;'>Ready for Multi-Inference</h2>
-                <p style='color:#8B949E;'>Upload patient MRI scans to initiate the neural classification sequence.</p>
+            <div style='text-align:center; padding: 100px 20px; border: 1px solid #30363D; border-radius:20px; background-color: #0D1117; margin-top:40px;'>
+                <p style='color:#8B949E; font-size:14px; font-weight:400;'>SYSTEM IDLE: Waiting for image input...</p>
+                <p style='color:#484F58; font-size:11px; text-transform:uppercase; letter-spacing:1px;'>Select MRI files to initiate batch sequence</p>
             </div>
         """, unsafe_allow_html=True)
 
 # --- FOOTER ---
-st.markdown("<br><br><br><div style='text-align:center; opacity:0.3; font-size:10px; letter-spacing:2px;'>NEUROSCAN ENTERPRISE EDITION v1.6 | IEEE-754 COMPLIANT | BATCH CORE</div>", unsafe_allow_html=True)
+st.markdown("<br><br><br><div style='text-align:center; opacity:0.3; font-size:10px; font-weight:700; letter-spacing:2px; color:#8B949E;'>NEUROSCAN ENTERPRISE v1.7 | RESEARCH CORE</div>", unsafe_allow_html=True)
