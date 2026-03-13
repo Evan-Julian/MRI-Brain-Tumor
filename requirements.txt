@@ -6,3 +6,5 @@ numpy
 keras
 onnxruntime
 fpdf==1.7.2
+numpy<2.0.0
+opencv-python-headless
