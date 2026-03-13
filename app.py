@@ -185,158 +185,32 @@ html, body, .stApp, [class*="css"] {
 .result-confidence.tumor { color: #FC8181; }
 
 .neo-divider { border: none; border-top: 1px solid rgba(99,179,237,0.08); margin: 32px 0; }
-
-.idle-state {
-    text-align: center; padding: 80px 40px;
-    border: 1px solid rgba(99,179,237,0.06);
-    border-radius: 4px;
-    background: rgba(99,179,237,0.01);
-}
-.idle-icon { font-size: 48px; margin-bottom: 20px; opacity: 0.3; }
-.idle-text {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px; letter-spacing: 3px;
-    color: rgba(99,179,237,0.25);
-    text-transform: uppercase;
-}
-
-/* Control Panel for Image Augmentation */
-.control-panel {
-    background: rgba(99,179,237,0.03);
-    border: 1px solid rgba(99,179,237,0.1);
-    border-radius: 4px;
-    padding: 15px;
-    margin-top: 10px;
-}
-
-/* ── KNOWLEDGE SECTION (Responsive Grid) ── */
-.knowledge-section {
-    background: rgba(6, 8, 16, 0.9);
-    border: 1px solid rgba(99,179,237,0.12);
-    border-radius: 4px;
-    padding: 28px 32px;
-    margin-top: 40px;
-    margin-bottom: 40px;
-}
-.knowledge-title {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px; letter-spacing: 4px;
-    color: rgba(99,179,237,0.5);
-    text-transform: uppercase;
-    margin-bottom: 20px;
-}
-.knowledge-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-}
-@media (max-width: 1024px) {
-    .knowledge-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 600px) {
-    .knowledge-grid { grid-template-columns: 1fr; }
-    .block-container { padding: 1rem !important; }
-}
-
-.knowledge-card {
-    background: rgba(99,179,237,0.03);
-    border: 1px solid rgba(99,179,237,0.08);
-    border-radius: 4px;
-    padding: 16px;
-    transition: border-color 0.2s;
-}
-.knowledge-card:hover {
-    border-color: rgba(99,179,237,0.25);
-}
-.knowledge-card .k-icon {
-    font-size: 20px;
-    margin-bottom: 8px;
-}
-.knowledge-card .k-title {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 2px;
-    color: #63B3ED;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-}
-.knowledge-card .k-type {
-    font-size: 9px;
-    font-family: 'Space Mono', monospace;
-    letter-spacing: 1px;
-    color: rgba(99,179,237,0.35);
-    text-transform: uppercase;
-    margin-bottom: 8px;
-    padding: 2px 6px;
-    border: 1px solid rgba(99,179,237,0.15);
-    border-radius: 2px;
-    display: inline-block;
-}
-.knowledge-card .k-desc {
-    font-size: 11px;
-    color: rgba(201,209,224,0.65);
-    line-height: 1.6;
-}
-.knowledge-card.no-tumor {
-    border-color: rgba(72,187,120,0.12);
-}
-.knowledge-card.no-tumor .k-title {
-    color: #68D391;
-}
-.knowledge-card.no-tumor .k-type {
-    color: rgba(72,187,120,0.5);
-    border-color: rgba(72,187,120,0.2);
-}
-
-/* ── INVALID WARNING CARD ── */
-.invalid-card {
-    background: rgba(254,178,178,0.05);
-    border: 1px solid rgba(252,129,129,0.3);
-    border-radius: 4px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    position: relative;
-    overflow: hidden;
-}
-.invalid-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0;
-    width: 3px; height: 100%;
-    background: linear-gradient(180deg, #FC8181, transparent);
-}
-.invalid-card .inv-title {
-    font-family: 'Space Mono', monospace;
-    font-size: 13px; font-weight: 700;
-    letter-spacing: 2px;
-    color: #FC8181;
-    margin-bottom: 4px;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR KNOWLEDGE CENTER ─────────────────────────────────────────────────
+# ── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('<div class="sidebar-title">Medical Knowledge Center</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="medical-card">
         <b>GLIOMA</b>
-        <p>Tumors originating from glial cells. Typically invasive and can spread to surrounding brain matter.</p>
+        <p>Tumors originating from glial cells. Invasive and spreads through brain tissue.</p>
     </div>
     <div class="medical-card">
         <b>MENINGIOMA</b>
-        <p>Tumors arising from the meninges. Usually benign but can compress vital neurological structures.</p>
+        <p>Tumors from protective brain layers. Usually benign but can compress nerves.</p>
     </div>
     <div class="medical-card">
         <b>PITUITARY</b>
-        <p>Tumors on the pituitary gland. Can impact hormonal regulation and visual fields.</p>
+        <p>Tumors on the pituitary gland. Affects hormones and visual fields.</p>
     </div>
     <div class="medical-card">
         <b>NO TUMOR</b>
-        <p>No indication of abnormal mass found within the analyzed scan area.</p>
+        <p>No indication of abnormal mass found in the analyzed scan area.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# ── PDF GENERATOR (Fixed Layout Overlap) ─────────────────────────────────────
+# ── PDF GENERATOR (FIXED LAYOUT & ERROR) ─────────────────────────────────────
 def safe(text):
     return text.encode('latin-1', errors='replace').decode('latin-1')
 
@@ -344,6 +218,8 @@ def create_pdf(results):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    
+    # Header
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(26, 115, 232)
     pdf.cell(0, 12, "NEUROSCAN AI - CLINICAL DIAGNOSTIC REPORT", ln=True, align='C')
@@ -356,7 +232,7 @@ def create_pdf(results):
         if idx > 0 and idx % 2 == 0:
             pdf.add_page()
         
-        y_start = pdf.get_y()
+        y_img = pdf.get_y()
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(40, 40, 40)
         pdf.cell(0, 8, safe(f"#{idx+1:02d} | {res['filename']}"), ln=True)
@@ -364,42 +240,40 @@ def create_pdf(results):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_mri:
             res['image'].save(tmp_mri.name)
             tmp_mri_path = tmp_mri.name
-
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_heat:
             res['saliency'].save(tmp_heat.name)
             tmp_heat_path = tmp_heat.name
 
-        y_img = pdf.get_y()
-        # Adjusted width and spacing for images
-        pdf.image(tmp_mri_path, x=10, y=y_img, w=58)
-        pdf.image(tmp_heat_path, x=72, y=y_img, w=58)
+        img_y = pdf.get_y()
+        pdf.image(tmp_mri_path, x=10, y=img_y, w=55)
+        pdf.image(tmp_heat_path, x=70, y=img_y, w=55)
 
-        # ── TEXT INFO (Moved X further to prevent overlap) ──
-        pdf.set_xy(135, y_img + 2) 
+        # Labels below images
+        pdf.set_font("Arial", 'I', 7)
+        pdf.set_text_color(150, 150, 150)
+        pdf.set_xy(10, img_y + 57)
+        pdf.cell(55, 4, "[ MRI RAW SCAN ]", align='C')
+        pdf.set_xy(70, img_y + 57)
+        pdf.cell(55, 4, "[ SALIENCY HEATMAP ]", align='C')
+
+        # ── DIAGNOSTIC INFO (Moved right to prevent overlap) ──
+        pdf.set_xy(132, img_y + 2)
         pdf.set_font("Arial", 'B', 14)
         is_tumor = res['label'].lower() != 'no tumor'
         pdf.set_text_color(220, 50, 50) if is_tumor else pdf.set_text_color(26, 115, 232)
         pdf.cell(0, 8, safe(res['label'].upper()), ln=True)
 
-        pdf.set_x(135)
+        pdf.set_x(132)
         pdf.set_font("Arial", '', 10)
         pdf.set_text_color(60, 60, 60)
         pdf.cell(0, 6, safe(f"Confidence: {res['confidence']:.2f}%"), ln=True)
 
-        pdf.set_x(135)
+        pdf.set_x(132)
         pdf.set_font("Arial", '', 9)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 5, safe(f"Resolution: {res['size']} px"), ln=True)
 
-        # Space labels below images
-        pdf.set_font("Arial", 'I', 7)
-        pdf.set_text_color(150, 150, 150)
-        pdf.set_xy(10, y_img + 60)
-        pdf.cell(58, 4, "[ MRI RAW SCAN ]", align='C')
-        pdf.set_xy(72, y_img + 60)
-        pdf.cell(58, 4, "[ SALIENCY HEATMAP ]", align='C')
-
-        pdf.set_y(y_img + 70)
+        pdf.set_y(img_y + 65)
         pdf.set_draw_color(220, 220, 220)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(6)
@@ -411,10 +285,11 @@ def create_pdf(results):
     pdf.set_font("Arial", 'I', 7)
     pdf.set_text_color(150, 150, 150)
     pdf.multi_cell(0, 4, safe("DISCLAIMER: Institutional research use only. Final clinical diagnosis must be conducted by professional medical staff."))
-    out = pdf.output(dest="S")
-    return bytes(out)
+    
+    # ── FIXED BYTE CONVERSION ──
+    return pdf.output(dest='S').encode('latin-1')
 
-# ── MODEL LOADER ─────────────────────────────────────────────────────────────
+# ── MODEL LOGIC ──────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     try:
@@ -424,7 +299,6 @@ def load_model():
         return ort.InferenceSession(path, providers=['CPUExecutionProvider'])
     except: return None
 
-# ── IMAGE VALIDATION FILTER ──────────────────────────────────────────────────
 def is_valid_mri(image: Image.Image) -> tuple[bool, str]:
     img_rgb = image.convert("RGB")
     img_arr = np.array(img_rgb, dtype=np.float32)
@@ -471,139 +345,71 @@ def generate_saliency(session, image: Image.Image, pred_class: int) -> Image.Ima
 
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 
-# ── MAIN UI ──────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="neuro-header">
-    <div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div>
-    <div class="neuro-badge">ResNet50 · ONNX Runtime · v2.4</div>
-</div>
-""", unsafe_allow_html=True)
+# ── UI ───────────────────────────────────────────────────────────────────────
+st.markdown('<div class="neuro-header"><div class="neuro-logo">NEURO<span>SCAN</span> AI</div><div class="neuro-badge">ResNet50 · v2.4</div></div>', unsafe_allow_html=True)
 
-# ── STEP 1: HERO & UPLOAD ───────────────────────────────────────────────────
-col_hero, col_upload = st.columns([1, 1], gap="large")
-
-with col_hero:
-    st.markdown("""
-    <div class="hero-title">BRAIN<br><span class="accent">TUMOR</span><br>SCAN</div>
-    <div class="hero-sub">// Precision Neuro-Imaging Analytics</div>
-    <div style="background: rgba(99,179,237,0.05); padding: 20px; border-radius: 4px; border: 1px solid rgba(99,179,237,0.1);">
-        <p style="font-family:'Space Mono', monospace; font-size:11px; color:#63B3ED; margin-bottom:10px;">[ SYSTEM_CAPABILITIES ]</p>
-        <ul style="font-size:12px; color:rgba(201,209,224,0.7); line-height:1.6; list-style-type: '→ '; padding-left:15px;">
-            <li>Saliency Mapping (Occlusion Sensitivity)</li>
-            <li>Real-time Image Augmentation Engine</li>
-            <li>Medical Knowledge Center Support</li>
-            <li>Clinical PDF Export (MRI + Heatmap)</li>
-            <li>MRI Image Validation & Security Filter</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_upload:
+c1, c2 = st.columns([1, 1], gap="large")
+with c1:
+    st.markdown('<div class="hero-title">BRAIN<br><span class="accent">TUMOR</span><br>SCAN</div><div class="hero-sub">// Precision Imaging Analytics</div>', unsafe_allow_html=True)
+with c2:
     session = load_model()
-    if session is None:
-        st.error("System Error: resnet_model.onnx not detected.")
-        st.stop()
-    uploaded_files = st.file_uploader("DROP MRI SCANS HERE", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
-    st.markdown("<div style='font-family:\"Space Mono\",monospace; font-size:10px; letter-spacing:2px; color:rgba(99,179,237,0.25); text-align:center; margin-top:8px; text-transform:uppercase;'>JPG / PNG supported · Batch active</div>", unsafe_allow_html=True)
+    uploaded_files = st.file_uploader("DROP MRI SCANS", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
-# ── STEP 2: KNOWLEDGE BASE ──────────────────────────────────────────────────
+# ── KNOWLEDGE BASE (NOW BELOW) ──────────────────────────────────────────────
 st.markdown("""
 <div class="knowledge-section">
-    <div class="knowledge-title">// Brain Tumor Knowledge Base</div>
     <div class="knowledge-grid">
-        <div class="knowledge-card">
-            <div class="k-icon">🧠</div>
-            <div class="k-title">Glioma</div>
-            <div class="k-type">Invasive · Grade I–IV</div>
-            <div class="k-desc">Originates from glial cells. Highly invasive and spreads across brain tissue.</div>
-        </div>
-        <div class="knowledge-card">
-            <div class="k-icon">🛡️</div>
-            <div class="k-title">Meningioma</div>
-            <div class="k-type">Benign · Slow-Growing</div>
-            <div class="k-desc">Arises from protective layers. Specific locations can compress vital nerves.</div>
-        </div>
-        <div class="knowledge-card">
-            <div class="k-icon">💧</div>
-            <div class="k-title">Pituitary</div>
-            <div class="k-type">Hormonal · Glandular</div>
-            <div class="k-desc">Located at brain base. Affects hormonal balance and visual fields.</div>
-        </div>
-        <div class="knowledge-card no-tumor">
-            <div class="k-icon">✅</div>
-            <div class="k-title">No Tumor</div>
-            <div class="k-type">Normal · Clear Scan</div>
-            <div class="k-desc">No indication of abnormal mass or malignant growth detected.</div>
-        </div>
+        <div class="knowledge-card"><b>🧠 Glioma</b><p>Invasive tumors.</p></div>
+        <div class="knowledge-card"><b>🛡️ Meningioma</b><p>Layer tumors.</p></div>
+        <div class="knowledge-card"><b>💧 Pituitary</b><p>Glandular tumors.</p></div>
+        <div class="knowledge-card"><b>✅ No Tumor</b><p>Normal scan.</p></div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── STEP 3: RUN ANALYSIS ─────────────────────────────────────────────────────
-if uploaded_files:
-    n = len(uploaded_files)
-    if st.button(f"EXECUTE ANALYSIS · {n} SEQUENCE{'S' if n > 1 else ''}"):
-        all_results, invalid_results = [], []
-        t_start = time.time()
-        progress_bar = st.progress(0, text="Initializing...")
-        for fi, f in enumerate(uploaded_files):
-            progress_bar.progress((fi) / n, text=f"Analyzing {f.name}...")
+# ── ANALYSIS ─────────────────────────────────────────────────────────────────
+if uploaded_files and session:
+    if st.button(f"EXECUTE ANALYSIS"):
+        res_list, inv_list = [], []
+        t_0 = time.time()
+        for f in uploaded_files:
             img = Image.open(f).convert('RGB')
-            valid, reason = is_valid_mri(img)
-            if not valid:
-                invalid_results.append({'filename': f.name, 'reason': reason, 'size': f"{img.size[0]}x{img.size[1]}"})
+            v, r = is_valid_mri(img)
+            if not v:
+                inv_list.append({'f': f.name, 'r': r})
                 continue
             batch = preprocess(img)
             out = session.run(None, {session.get_inputs()[0].name: batch})[0]
-            pred_idx = int(np.argmax(out[0]))
-            all_results.append({
-                'image': img, 'saliency': generate_saliency(session, img, pred_idx),
-                'filename': f.name, 'label': CLASS_NAMES.get(pred_idx, "Unknown"),
-                'confidence': float(np.max(out[0])) * 100, 'probs': out[0].tolist(),
-                'size': f"{img.size[0]}x{img.size[1]}"
+            idx = int(np.argmax(out[0]))
+            res_list.append({
+                'image': img, 'saliency': generate_saliency(session, img, idx),
+                'filename': f.name, 'label': CLASS_NAMES[idx],
+                'confidence': float(np.max(out[0])) * 100, 'size': f"{img.size[0]}x{img.size[1]}",
+                'probs': out[0].tolist()
             })
-        progress_bar.empty()
-        st.session_state.update({'analysis_results': all_results, 'invalid_results': invalid_results, 'total_time': time.time() - t_start})
+        st.session_state.update({'res': res_list, 'inv': inv_list, 'dur': time.time()-t_0})
 
-if 'analysis_results' in st.session_state:
-    results, invalid_list, t_total = st.session_state['analysis_results'], st.session_state['invalid_results'], st.session_state['total_time']
+if 'res' in st.session_state:
+    results, inv_list, dur = st.session_state['res'], st.session_state['inv'], st.session_state['dur']
     
-    if invalid_list:
-        for inv in invalid_list:
-            st.markdown(f'<div class="invalid-card"><div class="inv-title">INVALID — {inv["filename"]}</div><div style="font-size:11px; color:rgba(252,129,129,0.7)">{inv["reason"]}</div></div>', unsafe_allow_html=True)
-
     if results:
-        tumor_found = sum(1 for r in results if r['label'] != 'No Tumor')
-        st.markdown(f'<div class="stat-grid"><div class="stat-item"><div class="stat-label">Processed</div><div class="stat-value">{len(results)}<span> seq</span></div></div><div class="stat-item"><div class="stat-label">Abnormalities</div><div class="stat-value">{tumor_found}<span> detect</span></div></div><div class="stat-item"><div class="stat-label">Avg Conf</div><div class="stat-value">{np.mean([r["confidence"] for r in results]):.1f}<span>%</span></div></div><div class="stat-item"><div class="stat-label">Latency</div><div class="stat-value">{t_total:.2f}<span>s</span></div></div></div>', unsafe_allow_html=True)
-        st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
-        
+        st.markdown(f'<div class="stat-grid"><div class="stat-item"><div class="stat-label">Processed</div><div class="stat-value">{len(results)}</div></div><div class="stat-item"><div class="stat-label">Latency</div><div class="stat-value">{dur:.2f}s</div></div></div>', unsafe_allow_html=True)
         cols = st.columns(3)
-        for idx, res in enumerate(results):
-            with cols[idx % 3]:
-                is_tumor = res["label"] != "No Tumor"
-                st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}"><div style="display:flex;justify-content:space-between"><div><div class="result-label {"tumor" if is_tumor else ""}">{res["label"].upper()}</div><div class="result-meta">{res["filename"][:15]}...</div></div><div class="result-confidence {"tumor" if is_tumor else ""}">{res["confidence"]:.1f}%</div></div></div>', unsafe_allow_html=True)
-                t1, t2, t3 = st.tabs(["VIEW", "HEAT", "PROB"])
-                with t1:
-                    b = st.slider("BR", 0.5, 2.0, 1.0, key=f"b_{res['filename']}")
-                    st.image(ImageEnhance.Brightness(res["image"]).enhance(b), use_container_width=True)
-                with t2: st.image(res["saliency"], use_container_width=True)
-                with t3:
-                    for ci, p in enumerate(res["probs"]):
-                        st.markdown(f"<div style='font-size:12px; color:rgba(255,255,255,0.7)'>{CLASS_NAMES[ci]} ({p*100:.1f}%)</div>", unsafe_allow_html=True)
+        for i, r in enumerate(results):
+            with cols[i % 3]:
+                st.markdown(f'<div class="scan-result"><b>{r["label"].upper()}</b><br>{r["confidence"]:.1f}%</div>', unsafe_allow_html=True)
+                t1, t2, t3 = st.tabs(["View", "Heat", "Prob"])
+                with t1: st.image(r['image'], use_container_width=True)
+                with t2: st.image(r['saliency'], use_container_width=True)
+                with t3: 
+                    for ci, p in enumerate(r['probs']):
+                        st.markdown(f"<div>{CLASS_NAMES[ci]}: {p*100:.1f}%</div>", unsafe_allow_html=True)
                         st.progress(p)
-
-        st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
-        col_dl, col_info = st.columns([1, 2])
-        with col_dl: 
-            # PDF Generation
-            pdf_data = create_pdf(results)
-            st.download_button("DOWNLOAD CLINICAL REPORT", pdf_data, f"NeuroScan_{datetime.now().strftime('%Y%m%d')}.pdf", "application/pdf")
         
-        with col_info: 
-            # This section used to show None due to accidental empty return values
-            st.info("Institutional research use only. PDF report includes saliency mapping.")
+        st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
+        # ── DOWNLOAD SECTION ──
+        pdf_bytes = create_pdf(results)
+        st.download_button("DOWNLOAD CLINICAL REPORT", pdf_bytes, "Report.pdf", "application/pdf")
 
-# ── FOOTER ───────────────────────────────────────────────────────────────────
-# Fixed footer logic to avoid 'None' output
-footer_html = "<br><div style='text-align:center; font-family:\"Space Mono\",monospace; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.12); padding: 24px 0;'>NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH &nbsp;·&nbsp; v2.4</div>"
-st.markdown(footer_html, unsafe_allow_html=True)
+# Footer (Cleaned from None)
+st.markdown("<div style='text-align:center; font-size:9px; color:rgba(99,179,237,0.12); padding: 24px 0;'>NEUROSCAN AI · v2.4</div>", unsafe_allow_html=True)
