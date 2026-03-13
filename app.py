@@ -89,72 +89,43 @@ def preprocess(image):
 
 def generate_gradcam(image, model_path):
     import tensorflow as tf
-    try:
-        model = tf.keras.models.load_model(model_path, compile=False)
-    except:
-        from keras.src.legacy.saving import legacy_h5_format
-        model = legacy_h5_format.load_model_from_hdf5(model_path)
-
+    # Load model dengan compile=False agar lebih cepat
+    model = tf.keras.models.load_model(model_path, compile=False)
     img_array = preprocess(image)
     
-    # 1. Identifikasi model inti (ResNet50) di dalam wrapper Sequential
+    # Deteksi model inti di dalam Sequential
     target_model = model
     if hasattr(model, 'layers') and isinstance(model.layers[0], tf.keras.Model):
         target_model = model.layers[0]
 
-    # 2. Cari layer konvolusi terakhir
-    target_layer_name = 'conv5_block3_out'
-    try:
-        last_conv_layer = target_model.get_layer(target_layer_name)
-    except:
-        # Fallback jika nama layer berbeda
-        for layer in reversed(target_model.layers):
-            if isinstance(layer, tf.keras.layers.Conv2D):
-                target_layer_name = layer.name
-                last_conv_layer = layer
-                break
+    # Target layer ResNet50 terakhir
+    target_layer = target_model.get_layer('conv5_block3_out')
 
-    # 3. Model Fungsional dengan penanganan eksplisit untuk tensor
-    # Menggunakan output[0] jika layer mengembalikan list/tuple
-    itf = target_model.inputs[0] if isinstance(target_model.inputs, list) else target_model.inputs
-    otf_conv = last_conv_layer.output[0] if isinstance(last_conv_layer.output, list) else last_conv_layer.output
-    otf_pred = target_model.output[0] if isinstance(target_model.output, list) else target_model.output
-
-    grad_model = tf.keras.Model(inputs=itf, outputs=[otf_conv, otf_pred])
+    # Bangun model fungsional untuk Grad-CAM
+    grad_model = tf.keras.models.Model(
+        [target_model.inputs], 
+        [target_layer.output, target_model.output]
+    )
 
     with tf.GradientTape() as tape:
-        # Konversi input ke tensor secara eksplisit
-        img_tensor = tf.convert_to_tensor(img_array)
-        conv_outputs, predictions = grad_model(img_tensor)
-        
-        # Penanganan khusus jika output tetap dibungkus tuple oleh API fungsional
-        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
-        if isinstance(predictions, (list, tuple)): predictions = predictions[0]
+        conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
+        loss = predictions[:, tf.argmax(predictions[0])]
 
-        class_idx = tf.argmax(predictions[0])
-        loss = predictions[:, class_idx]
-
-    # Ekstraksi Gradien murni
+    # Gradient & Heatmap
     grads = tape.gradient(loss, conv_outputs)
-    
-    # Global Average Pooling
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     
-    # Hitung Heatmap
     heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
-    
-    # Normalisasi
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
-    heatmap_np = heatmap.numpy()
     
-    # Resize & Overlay
+    # Process heatmap ke citra
+    heatmap_np = heatmap.numpy()
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
     
-    original_img = np.array(image.convert('RGB'))
-    return Image.fromarray(cv2.addWeighted(original_img, 0.6, heatmap_rgb, 0.4, 0))
+    return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0))
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -178,13 +149,13 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("Dual-Engine Visual Diagnostics: ONNX Inference + XAI Grad-CAM")
+    st.caption("v3.0 Stable Dashboard: Forced Legacy Engine")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
 if uploaded_files:
-    if st.button(f"EXECUTE ANALYSIS ({len(uploaded_files)} SCANS)"):
+    if st.button(f"EXECUTE DIAGNOSTIC ({len(uploaded_files)} SCANS)"):
         all_results = []
         t_start = time.time()
         MODEL_PATH = 'best_resnet_20260307-162330.h5'
@@ -193,12 +164,12 @@ if uploaded_files:
             batch = preprocess(img)
             out = onnx_sess.run(None, {onnx_sess.get_inputs()[0].name: batch})[0]
             pred_idx = int(np.argmax(out[0]))
-            with st.spinner(f"Processing XAI for {f.name}..."):
+            with st.spinner(f"XAI Analysis: {f.name}..."):
                 saliency_img = generate_saliency(onnx_sess, img, pred_idx)
                 gradcam_img = None
                 if os.path.exists(MODEL_PATH):
                     try: gradcam_img = generate_gradcam(img, MODEL_PATH)
-                    except Exception as e: st.warning(f"Grad-CAM error for {f.name}: {e}")
+                    except Exception as e: st.warning(f"Engine Log: {e}")
             all_results.append({
                 'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img,
                 'filename': f.name, 'label': {0:"Glioma", 1:"Meningioma", 2:"No Tumor", 3:"Pituitary"}.get(pred_idx, "Unknown"),
@@ -215,8 +186,8 @@ if uploaded_files:
             with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
                 if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
-                else: st.info("Grad-CAM Unavailable")
-            with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
+                else: st.info("XAI Engine Unavailable for this scan")
+            with c3: st.image(res['saliency'], caption="Saliency (Occlusion)", use_container_width=True)
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
 else:
     st.markdown("<center><br><br><div style='opacity:0.3'>Awaiting MRI scan input...</div></center>", unsafe_allow_html=True)
