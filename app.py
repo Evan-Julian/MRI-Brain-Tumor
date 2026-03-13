@@ -87,33 +87,33 @@ def preprocess(image):
     arr[:, :, 2] -= 123.68
     return np.expand_dims(arr, axis=0)
 
-# --- GRAD-CAM ENGINE v3.6 (ADAPTIVE) ---
+# --- GRAD-CAM ENGINE v3.7 (ADAPTIVE) ---
 def generate_gradcam(image, model_path):
     import tensorflow as tf
-    from tensorflow.keras import layers, models
 
     def build_and_load():
-        # Membangun base model
+        # Membangun dengan API Functional (lebih stabil daripada Sequential untuk loading bobot)
         base = tf.keras.applications.ResNet50(include_top=False, weights=None, input_shape=(224, 224, 3))
+        inputs = tf.keras.Input(shape=(224, 224, 3))
+        x = base(inputs)
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        outputs = tf.keras.layers.Dense(4, activation='softmax')(x)
+        model = tf.keras.Model(inputs, outputs)
         
-        # Sesuai Colab: model = models.Sequential([base, GAP, Dense])
-        model = models.Sequential([
-            layers.Input(shape=(224, 224, 3)),
-            base,
-            layers.GlobalAveragePooling2D(),
-            layers.Dense(4, activation='softmax')
-        ])
-        
-        # Ganti ke load_model dengan compile=False agar lebih luwes terhadap 'axes'
-        # Jika gagal, baru gunakan load_weights
+        # 1. Coba load utuh (Keras 3 standar)
         try:
             full_model = tf.keras.models.load_model(model_path, compile=False)
-            # Ambil base resnet dari dalam Sequential hasil loading
+            # Cari resnet part di dalam model yang baru dimuat
+            resnet_part = None
             for layer in full_model.layers:
-                if isinstance(layer, tf.keras.Model) or 'resnet50' in layer.name.lower():
-                    return full_model, layer
-            return full_model, full_model
+                if 'resnet50' in layer.name.lower():
+                    resnet_part = layer
+                    break
+            if resnet_part is None: resnet_part = full_model
+            return full_model, resnet_part
         except:
+            # 2. Fallback: Load bobot secara parsial (Keras 2 compat)
+            # by_name=True sangat penting karena struktur wrapper Sequential sering berbeda
             model.load_weights(model_path, by_name=True, skip_mismatch=True)
             return model, base
 
@@ -125,48 +125,50 @@ def generate_gradcam(image, model_path):
     img_array = preprocess(image)
     
     try:
-        # Cari layer konvolusi terakhir secara dinamis
+        # Cari layer konvolusi terakhir secara dinamis dengan pengecekan mendalam
         target_layer = None
-        for layer in reversed(resnet_part.layers):
+        # Jika resnet_part adalah model functional (biasanya iya), kita cari di .layers-nya
+        layers_to_search = resnet_part.layers if hasattr(resnet_part, 'layers') else model.layers
+        
+        for layer in reversed(layers_to_search):
             if isinstance(layer, tf.keras.layers.Conv2D) or 'conv5_block3_out' in layer.name:
                 target_layer = layer
                 break
         
-        if not target_layer: return None, "Target convolution layer not found."
+        if not target_layer: return None, "Target layer not detected."
 
+        # Model Grad-CAM
         grad_model = tf.keras.models.Model(
             [resnet_part.inputs], 
             [target_layer.output, resnet_part.output]
         )
         
         with tf.GradientTape() as tape:
-            inputs = tf.cast(img_array, tf.float32)
-            conv_outputs, predictions = grad_model(inputs)
+            conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
+            # Unpacking tensor (Keras 3 safety)
             if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
             if isinstance(predictions, (list, tuple)): predictions = predictions[0]
             
-            class_idx = tf.argmax(predictions[0])
-            loss = predictions[:, class_idx]
+            loss = predictions[:, tf.argmax(predictions[0])]
 
         grads = tape.gradient(loss, conv_outputs)
-        # Global Average Pooling pada gradien
         weights = tf.reduce_mean(grads, axis=(0, 1, 2))
         
-        # Kalkulasi CAM (Class Activation Map)
+        # Kalkulasi Heatmap dengan broadcast multiplication
         cam = tf.reduce_sum(tf.multiply(weights, conv_outputs), axis=-1)
         heatmap = cam[0]
         heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
         
+        # Color mapping
         heatmap_np = heatmap.numpy()
         heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
         heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
         heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
         
-        original_img = np.array(image.convert('RGB'))
-        return Image.fromarray(cv2.addWeighted(original_img, 0.6, heatmap_rgb, 0.4, 0)), None
+        return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0)), None
 
     except Exception as e:
-        return None, f"Analysis Error: {e}"
+        return None, f"XAI Logic Error: {e}"
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -190,7 +192,7 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("v3.6 Adaptive XAI: Hybrid Model Loading")
+    st.caption("v3.7 Stable XAI: Functional Mapping & Dimension Safety")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
@@ -215,7 +217,7 @@ if uploaded_files:
                 if os.path.exists(MODEL_PATH):
                     gradcam_img, gc_error = generate_gradcam(img, MODEL_PATH)
                 else:
-                    gc_error = "Model file (.h5) missing."
+                    gc_error = "Model .h5 not found."
             
             all_results.append({
                 'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img, 'error': gc_error,
