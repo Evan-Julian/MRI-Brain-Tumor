@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded", 
 )
 
-# ── CSS (BUG FIX: CLEANED) ───────────────────────────────────────────────────
+# ── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800;900&display=swap');
@@ -165,13 +165,13 @@ with st.sidebar:
     </div>
     <hr style="opacity:0.1">
     <p style="font-size:10px; color:rgba(99,179,237,0.4); text-align:center;">
-        Gunakan tombol sidebar di kiri atas untuk menutup/membuka panel ini.
+        Gunakan tombol sidebar (tanda panah) di pojok kiri atas untuk navigasi.
     </p>
     """, unsafe_allow_html=True)
 
-# ── PDF UTILITY ──────────────────────────────────────────────────────────────
-def safe(text):
-    return text.encode('latin-1', errors='replace').decode('latin-1')
+# ── PDF UTILITY (BUG FIX: TYPEERROR RESOLVED) ───────────────────────────────
+def safe_str(text):
+    return text.encode('latin-1', 'replace').decode('latin-1')
 
 def create_pdf(results):
     pdf = FPDF()
@@ -182,36 +182,46 @@ def create_pdf(results):
     pdf.cell(0, 12, "NEUROSCAN AI - CLINICAL DIAGNOSTIC REPORT", ln=True, align='C')
     pdf.set_font("Arial", size=9)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, safe(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"), ln=True, align='C')
+    pdf.cell(0, 5, safe_str(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"), ln=True, align='C')
     pdf.ln(8)
 
     for idx, res in enumerate(results):
-        if idx > 0 and idx % 2 == 0: pdf.add_page()
+        if idx > 0 and idx % 2 == 0:
+            pdf.add_page()
+        
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(40, 40, 40)
-        pdf.cell(0, 8, safe(f"#{idx+1:02d}  {res['filename']}"), ln=True)
+        pdf.cell(0, 8, safe_str(f"#{idx+1:02d}  {res['filename']}"), ln=True)
+        
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             res['image'].save(tmp.name)
-            y = pdf.get_y()
-            pdf.image(tmp.name, x=10, y=y, w=55)
-        pdf.set_xy(75, y + 6)
+            y_pos = pdf.get_y()
+            pdf.image(tmp.name, x=10, y=y_pos, w=55)
+        
+        pdf.set_xy(75, y_pos + 6)
         pdf.set_font("Arial", 'B', 13)
         is_tumor = res['label'].lower() != 'no tumor'
         pdf.set_text_color(220, 50, 50) if is_tumor else pdf.set_text_color(26, 115, 232)
-        pdf.cell(0, 8, safe(res['label'].upper()), ln=True)
+        pdf.cell(0, 8, safe_str(res['label'].upper()), ln=True)
+        
         pdf.set_x(75)
         pdf.set_font("Arial", '', 11)
         pdf.set_text_color(60, 60, 60)
-        pdf.cell(0, 7, safe(f"Confidence: {res['confidence']:.2f}%"), ln=True)
-        pdf.set_y(y + 60)
+        pdf.cell(0, 7, safe_str(f"Confidence: {res['confidence']:.2f}%"), ln=True)
+        
+        pdf.set_y(y_pos + 60)
         pdf.set_draw_color(220, 220, 220)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        if os.path.exists(tmp.name): os.remove(tmp.name)
+        
+        if os.path.exists(tmp.name):
+            os.remove(tmp.name)
 
     pdf.ln(8)
     pdf.set_font("Arial", 'I', 7)
-    pdf.multi_cell(0, 4, safe("DISCLAIMER: Research use only. Final diagnosis must be by a medical professional."))
-    return bytes(pdf.output(dest="S"))
+    pdf.multi_cell(0, 4, safe_str("DISCLAIMER: Research use only. Final diagnosis must be by a medical professional."))
+    
+    # Bug Fix: Return as raw bytes directly for download_button
+    return pdf.output()
 
 # ── MODEL ENGINE ─────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -254,24 +264,24 @@ def generate_saliency(session, image: Image.Image, pred_class: int) -> Image.Ima
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 
 # ── MAIN INTERFACE ───────────────────────────────────────────────────────────
-st.markdown('<div class="neuro-header"><div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div><div class="neuro-badge">v2.5 FINAL</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="neuro-header"><div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div><div class="neuro-badge">v2.6 STABLE</div></div>', unsafe_allow_html=True)
 
 c_hero, c_up = st.columns([1, 1], gap="large")
 with c_hero:
     st.markdown('<div style="font-size:60px; font-weight:900; line-height:1; color:#EDF2F7;">BRAIN<br><span style="color:transparent;-webkit-text-stroke:1px rgba(99,179,237,0.5);">TUMOR</span><br>SCAN</div>', unsafe_allow_html=True)
-    st.markdown('<p style="font-family:Space Mono; color:rgba(99,179,237,0.5); font-size:12px;">// Deep Learning MRI Classification</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-family:Space Mono; color:rgba(99,179,237,0.5); font-size:12px;">// Precision Neuro-Imaging Analytics</p>', unsafe_allow_html=True)
 
 with c_up:
     session = load_model()
-    if not session: st.error("Model not found."); st.stop()
-    files = st.file_uploader("DROP MRI HERE", type=["jpg","png","jpeg"], accept_multiple_files=True, label_visibility="collapsed")
+    if not session: st.error("Model 'resnet_model.onnx' tidak ditemukan."); st.stop()
+    uploaded_files = st.file_uploader("DROP MRI HERE", type=["jpg","png","jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
-if files:
-    if st.button(f"RUN ANALYSIS · {len(files)} SCANS"):
+if uploaded_files:
+    if st.button(f"RUN ANALYSIS · {len(uploaded_files)} SCANS"):
         all_res = []
         t_start = time.time()
         prog = st.progress(0)
-        for i, f in enumerate(files):
+        for i, f in enumerate(uploaded_files):
             img = Image.open(f).convert('RGB')
             out = session.run(None, {session.get_inputs()[0].name: preprocess(img)})[0]
             idx = int(np.argmax(out[0]))
@@ -280,11 +290,11 @@ if files:
                 'filename': f.name, 'label': CLASS_NAMES[idx], 
                 'confidence': float(np.max(out[0]))*100, 'probs': out[0].tolist(), 'size': f"{img.size[0]}x{img.size[1]}"
             })
-            prog.progress((i+1)/len(files))
+            prog.progress((i+1)/len(uploaded_files))
         st.session_state['results'] = all_res
         st.session_state['time'] = time.time() - t_start
 
-# ── RESULTS DISPLAY ──────────────────────────────────────────────────────────
+# ── DISPLAY RESULTS ──────────────────────────────────────────────────────────
 if 'results' in st.session_state:
     res = st.session_state['results']
     st.markdown(f"""
@@ -296,7 +306,6 @@ if 'results' in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
-    # LOOP RESULTS (BUG FIX: CLEAN COLUMN HANDLING)
     for i in range(0, len(res), 3):
         row_items = res[i:i+3]
         cols = st.columns(3)
@@ -317,8 +326,11 @@ if 'results' in st.session_state:
                     br = sl1.slider("BRIGHT", 0.5, 2.0, 1.0, key=f"b{i+idx}")
                     ct = sl2.slider("CONTRAST", 0.5, 2.0, 1.0, key=f"c{i+idx}")
                     st.markdown("</div>", unsafe_allow_html=True)
-                    st.image(ImageEnhance.Contrast(ImageEnhance.Brightness(item['image']).enhance(br)).enhance(ct), use_container_width=True)
-                with t2: st.image(item['saliency'], use_container_width=True)
+                    img_enh = ImageEnhance.Brightness(item['image']).enhance(br)
+                    img_enh = ImageEnhance.Contrast(img_enh).enhance(ct)
+                    st.image(img_enh, use_container_width=True)
+                with t2: 
+                    st.image(item['saliency'], use_container_width=True)
                 with t3:
                     for k, v in enumerate(item['probs']):
                         st.write(f"{CLASS_NAMES[k]}: {v*100:.1f}%")
@@ -326,14 +338,21 @@ if 'results' in st.session_state:
     
     st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
     
-    # PDF SECTION (CLEANED)
+    # PDF & INFO
     pdf_col1, pdf_col2 = st.columns([1, 2])
     with pdf_col1:
-        st.download_button("↓ DOWNLOAD CLINICAL REPORT", create_pdf(res), f"NeuroReport_{datetime.now().strftime('%M%S')}.pdf", "application/pdf")
+        # Generate PDF only when button is clicked or use pre-generated bytes
+        pdf_data = create_pdf(res)
+        st.download_button(
+            label="↓ DOWNLOAD CLINICAL REPORT",
+            data=pdf_data,
+            file_name=f"NeuroScan_{datetime.now().strftime('%H%M%S')}.pdf",
+            mime="application/pdf"
+        )
     with pdf_col2:
-        st.info("ℹ️ INFO: Gunakan tab VIEW untuk pengaturan visual manual.")
+        st.info("ℹ️ TIPS: Gunakan tab VIEW untuk memperjelas kontras jaringan secara manual.")
 
-elif not files:
+elif not uploaded_files:
     st.markdown('<div style="text-align:center; padding:100px; opacity:0.2;">◎ Awaiting MRI Scan Input</div>', unsafe_allow_html=True)
 
 # ── FOOTER ───────────────────────────────────────────────────────────────────
