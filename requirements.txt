@@ -1,10 +1,9 @@
 streamlit
-tensorflow
+tensorflow==2.15.0
 scikit-learn
 pillow
-numpy
-keras
-onnxruntime
-fpdf==1.7.2
 numpy<2.0.0
+keras==2.15.0
+onnxruntime
+fpdf
 opencv-python-headless
