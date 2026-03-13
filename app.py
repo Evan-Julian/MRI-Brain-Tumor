@@ -7,6 +7,7 @@ import pandas as pd
 from PIL import Image, ImageEnhance
 from fpdf import FPDF
 from datetime import datetime
+import io
 
 # ── CONFIGURATION ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -54,11 +55,6 @@ html, body, .stApp, [class*="css"] {
     background: rgba(99,179,237,0.04);
     border: 1px solid rgba(99,179,237,0.1);
     padding: 16px; border-radius: 4px;
-    transition: all 0.3s ease;
-}
-.medical-card:hover {
-    background: rgba(99,179,237,0.08);
-    border-color: rgba(99,179,237,0.3);
 }
 .medical-card b { color: #63B3ED; font-size: 13px; font-family: 'Space Mono', monospace; display: block; margin-bottom: 8px; letter-spacing: 1px;}
 .medical-card p { font-size: 11px; line-height: 1.5; color: rgba(201,209,224,0.7); margin: 0; }
@@ -76,14 +72,6 @@ html, body, .stApp, [class*="css"] {
     text-transform: uppercase;
 }
 .neuro-logo span { color: #63B3ED; font-weight: 700; }
-.neuro-badge {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px; letter-spacing: 3px;
-    color: rgba(99,179,237,0.4);
-    border: 1px solid rgba(99,179,237,0.15);
-    padding: 6px 14px; border-radius: 2px;
-    text-transform: uppercase;
-}
 
 .hero-title {
     font-size: clamp(32px, 5vw, 70px);
@@ -93,23 +81,12 @@ html, body, .stApp, [class*="css"] {
     color: #EDF2F7;
     margin-bottom: 16px;
 }
-.hero-title .accent {
-    color: transparent;
-    -webkit-text-stroke: 1px rgba(99,179,237,0.5);
-}
 .hero-sub {
     font-family: 'Space Mono', monospace;
     font-size: 12px; letter-spacing: 2px;
     color: rgba(99,179,237,0.5);
     text-transform: uppercase;
     margin-bottom: 32px;
-}
-
-[data-testid="stFileUploader"] > div {
-    background: rgba(99,179,237,0.02) !important;
-    border: 1px dashed rgba(99,179,237,0.2) !important;
-    border-radius: 4px !important;
-    padding: 40px !important;
 }
 
 .stat-grid {
@@ -140,24 +117,13 @@ html, body, .stApp, [class*="css"] {
     border-radius: 4px;
     padding: 20px;
     margin-bottom: 12px;
-    overflow: hidden;
 }
-.scan-result::before {
+.scan-result.tumor::before {
     content: '';
     position: absolute; top: 0; left: 0;
     width: 3px; height: 100%;
-    background: linear-gradient(180deg, #63B3ED, transparent);
+    background: #FC8181;
 }
-.scan-result.tumor::before {
-    background: linear-gradient(180deg, #FC8181, transparent);
-}
-.result-label {
-    font-size: 22px; font-weight: 900;
-    letter-spacing: -1px;
-    color: #EDF2F7;
-    margin-bottom: 4px;
-}
-.result-label.tumor { color: #FC8181; }
 
 .control-panel {
     background: rgba(99,179,237,0.03);
@@ -166,8 +132,6 @@ html, body, .stApp, [class*="css"] {
     padding: 15px;
     margin-top: 10px;
 }
-
-.neo-divider { border: none; border-top: 1px solid rgba(99,179,237,0.08); margin: 32px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -175,39 +139,35 @@ html, body, .stApp, [class*="css"] {
 st.markdown("""
 <div class="neuro-header">
     <div class="neuro-logo">NEURO<span>SCAN</span> / AI DIAGNOSTIC</div>
-    <div class="neuro-badge">ResNet50 · ONNX · v2.6 STABLE</div>
+    <div class="neuro-badge">ResNet50 · ONNX · v2.7 FINAL</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── HERO & MEDICAL INFO ──────────────────────────────────────────────────────
+# ── HERO & MEDICAL KNOWLEDGE ─────────────────────────────────────────────────
 st.markdown("""
-<div class="hero-title">
-    BRAIN<br>
-    <span class="accent">TUMOR</span><br>
-    SCAN
-</div>
-<div class="hero-sub">// Precision Neuro-Imaging Knowledge Base</div>
+<div class="hero-title">BRAIN ANALYTICS</div>
+<div class="hero-sub">// Clinical Neuro-Imaging Evidence Base</div>
 <div class="med-info-container">
     <div class="medical-card">
         <b>GLIOMA</b>
-        <p>Invasive tumors originating from glial cells. Frequently infiltrates surrounding brain tissue in a diffuse manner.</p>
+        <p>Invasive primary tumors. Characterized by infiltration into surrounding neural parenchyma.</p>
     </div>
     <div class="medical-card">
         <b>MENINGIOMA</b>
-        <p>Tumors arising from the meninges. Typically slow-growing and may exert pressure on critical neural structures.</p>
+        <p>Extra-axial tumors arising from the arachnoid cap cells of the meninges.</p>
     </div>
     <div class="medical-card">
         <b>PITUITARY</b>
-        <p>Tumors of the endocrine gland at the skull base. Affects hormonal balance and often impacts the optic chiasm.</p>
+        <p>Adenomas occurring in the sella turcica. Often impacts endocrine function and visual fields.</p>
     </div>
     <div class="medical-card">
         <b>NO TUMOR</b>
-        <p>Normal imaging. No evidence of abnormal masses, pathological lesions, or neoplastic indicators detected.</p>
+        <p>Negative findings. No localized mass effect or neoplastic signal intensity detected.</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── PDF ENGINE ───────────────────────────────────────────────────────────────
+# ── PDF GENERATOR ────────────────────────────────────────────────────────────
 def safe_str(text):
     return text.encode('latin-1', 'replace').decode('latin-1')
 
@@ -215,46 +175,55 @@ def create_pdf(results):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(26, 115, 232)
-    pdf.cell(0, 12, "NEUROSCAN AI - CLINICAL DIAGNOSTIC REPORT", ln=True, align='C')
+    pdf.cell(0, 12, "NEUROSCAN AI - DIAGNOSTIC REPORT", ln=True, align='C')
     pdf.set_font("Arial", size=9)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 5, safe_str(f"Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"), ln=True, align='C')
+    pdf.cell(0, 5, safe_str(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"), ln=True, align='C')
     pdf.ln(10)
     
     for idx, res in enumerate(results):
-        if pdf.get_y() > 220:
+        if pdf.get_y() > 200:
             pdf.add_page()
             
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(40, 40, 40)
-        pdf.cell(0, 8, safe_str(f"CASE #{idx+1:02d} - FILENAME: {res['filename']}"), ln=True)
+        pdf.cell(0, 8, safe_str(f"Case #{idx+1:02d} | Source: {res['filename']}"), ln=True)
         
-        y_images = pdf.get_y()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_orig:
-            res['image'].save(tmp_orig.name)
-            pdf.image(tmp_orig.name, x=10, y=y_images, w=60)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_heat:
-            res['saliency'].save(tmp_heat.name)
-            pdf.image(tmp_heat.name, x=75, y=y_images, w=60)
+        y_img = pdf.get_y()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_o:
+            res['image'].save(tmp_o.name)
+            pdf.image(tmp_o.name, x=10, y=y_img, w=55)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_h:
+            res['saliency'].save(tmp_h.name)
+            pdf.image(tmp_h.name, x=70, y=y_img, w=55)
             
-        pdf.set_xy(140, y_images + 2)
-        pdf.set_font("Arial", 'B', 10); pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 6, "DIAGNOSTIC CLASSIFICATION:", ln=True)
-        pdf.set_x(140); pdf.set_font("Arial", 'B', 14)
-        is_tumor = res['label'].lower() != 'no tumor'
-        pdf.set_text_color(200, 50, 50) if is_tumor else pdf.set_text_color(26, 115, 232)
+        pdf.set_xy(130, y_img + 5)
+        pdf.set_font("Arial", 'B', 12)
+        is_t = res['label'].lower() != 'no tumor'
+        pdf.set_text_color(200, 50, 50) if is_t else pdf.set_text_color(26, 115, 232)
         pdf.cell(0, 8, safe_str(res['label'].upper()), ln=True)
-        pdf.set_x(140); pdf.set_font("Arial", '', 11); pdf.set_text_color(50, 50, 50)
-        pdf.cell(0, 7, safe_str(f"Confidence: {res['confidence']:.2f}%"), ln=True)
         
-        os.remove(tmp_orig.name); os.remove(tmp_heat.name)
-        pdf.set_y(y_images + 65); pdf.set_draw_color(230, 230, 230); pdf.line(10, pdf.get_y(), 200, pdf.get_y()); pdf.ln(5)
+        pdf.set_x(130)
+        pdf.set_font("Arial", '', 10)
+        pdf.set_text_color(60, 60, 60)
+        pdf.cell(0, 6, safe_str(f"Confidence: {res['confidence']:.2f}%"), ln=True)
+        
+        os.remove(tmp_o.name)
+        os.remove(tmp_h.name)
+        pdf.set_y(y_img + 60)
+        pdf.set_draw_color(230, 230, 230)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
 
-    pdf.ln(10); pdf.set_font("Arial", 'I', 8); pdf.set_text_color(150, 150, 150)
-    pdf.multi_cell(0, 5, safe_str("LEGAL DISCLAIMER: This document is generated for research purposes only using automated Deep Learning architectures. Final clinical decisions must be validated by a professional neuroradiologist."))
-    return pdf.output(dest='S')
+    pdf.ln(10)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.multi_cell(0, 5, "Disclaimer: Automated analysis for research use only. Final validation required by a qualified radiologist.")
+    
+    # Return buffer as bytes
+    return pdf.output(dest='S').encode('latin-1')
 
 # ── MODEL LOADER ─────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -289,9 +258,9 @@ def generate_saliency(session, image: Image.Image, pred_class: int) -> Image.Ima
 
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 
-# ── UPLOAD & RUN ─────────────────────────────────────────────────────────────
+# ── ANALYSIS ENGINE ──────────────────────────────────────────────────────────
 session = load_model()
-if not session: st.error("resnet_model.onnx not found."); st.stop()
+if not session: st.error("resnet_model.onnx missing."); st.stop()
 
 uploaded_files = st.file_uploader("DROP MRI HERE", type=["jpg","png","jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
@@ -299,33 +268,23 @@ if uploaded_files:
     if st.button(f"RUN ANALYSIS / {len(uploaded_files)} SCANS"):
         all_res = []
         t_start = time.time()
-        
-        # IMPROVED PROGRESS FEEDBACK
-        with st.status("Initializing Neural Engine...", expanded=True) as status:
-            prog_bar = st.progress(0)
+        with st.status("Analyzing MRI Sequences...", expanded=True) as status:
+            prog = st.progress(0)
             for i, f in enumerate(uploaded_files):
-                # Update status text for clarity
-                status.write(f"Analyzing sequence: **{f.name}** ({i+1}/{len(uploaded_files)})")
-                
+                status.write(f"Processing: {f.name}")
                 img = Image.open(f).convert('RGB')
                 out = session.run(None, {session.get_inputs()[0].name: preprocess(img)})[0]
                 idx = int(np.argmax(out[0]))
-                
-                # Visual delay so user can actually see the progress text
-                time.sleep(0.05) 
-                
                 all_res.append({
                     'image': img, 'saliency': generate_saliency(session, img, idx),
                     'filename': f.name, 'label': CLASS_NAMES[idx], 
                     'confidence': float(np.max(out[0]))*100, 'probs': out[0].tolist(), 'size': f"{img.size[0]}x{img.size[1]}"
                 })
-                prog_bar.progress((i+1)/len(uploaded_files))
-            
+                prog.progress((i+1)/len(uploaded_files))
             status.update(label="Analysis Complete", state="complete", expanded=False)
-            
         st.session_state['results'] = all_res; st.session_state['time'] = time.time() - t_start
 
-# ── DISPLAY RESULTS ──────────────────────────────────────────────────────────
+# ── DISPLAY ──────────────────────────────────────────────────────────────────
 if 'results' in st.session_state:
     res = st.session_state['results']
     st.markdown(f"""
@@ -338,36 +297,31 @@ if 'results' in st.session_state:
     """, unsafe_allow_html=True)
 
     for i in range(0, len(res), 3):
-        row_items = res[i:i+3]
         cols = st.columns(3)
-        for idx, item in enumerate(row_items):
+        for idx, item in enumerate(res[i:i+3]):
             with cols[idx]:
                 is_t = item['label'] != 'No Tumor'
-                st.markdown(f'<div class="scan-result {"tumor" if is_t else ""}"><div class="result-label {"tumor" if is_t else ""}">{item["label"].upper()}</div><div style="font-size:10px; opacity:0.6; font-family:Space Mono;">{item["filename"]} | {item["confidence"]:.1f}%</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="scan-result {"tumor" if is_t else ""}"><div class="result-label {"tumor" if is_t else ""}">{item["label"].upper()}</div><div style="font-size:10px; opacity:0.6;">{item["filename"]}</div></div>', unsafe_allow_html=True)
                 t1, t2, t3 = st.tabs(["VIEW", "HEATMAP", "PROBABILITY"])
                 with t1:
                     st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
-                    sl1, sl2 = st.columns(2)
-                    br = sl1.slider("BRIGHTNESS", 0.5, 2.0, 1.0, key=f"b{i+idx}")
-                    ct = sl2.slider("CONTRAST", 0.5, 2.0, 1.0, key=f"c{i+idx}")
+                    s1, s2, s3 = st.columns(3)
+                    br = s1.slider("BRIGHT", 0.5, 2.0, 1.0, key=f"b{i+idx}")
+                    ct = s2.slider("CONTRAST", 0.5, 2.0, 1.0, key=f"c{i+idx}")
+                    sh = s3.slider("SHARP", 0.0, 3.0, 1.0, key=f"s{i+idx}")
                     st.markdown("</div>", unsafe_allow_html=True)
-                    st.image(ImageEnhance.Contrast(ImageEnhance.Brightness(item['image']).enhance(br)).enhance(ct), use_container_width=True)
+                    e = ImageEnhance.Brightness(item['image']).enhance(br)
+                    e = ImageEnhance.Contrast(e).enhance(ct)
+                    e = ImageEnhance.Sharpness(e).enhance(sh)
+                    st.image(e, use_container_width=True)
                 with t2: st.image(item['saliency'], use_container_width=True)
                 with t3:
                     for k, v in enumerate(item['probs']):
                         st.write(f"{CLASS_NAMES[k]}: {v*100:.1f}%"); st.progress(v)
     
     st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
-    c_dl, c_inf = st.columns([1, 2])
-    with c_dl: 
-        st.download_button("DOWNLOAD DIAGNOSTIC REPORT", create_pdf(res), f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf", "application/pdf")
-    with c_inf: st.info("Clinical Information: Final diagnostic validation must be performed by a board-certified neuroradiologist.")
+    c1, c2 = st.columns([1, 2])
+    with c1: st.download_button("DOWNLOAD REPORT", create_pdf(res), f"NeuroReport_{datetime.now().strftime('%H%M')}.pdf", "application/pdf")
+    with c2: st.info("Diagnostic validation must be performed by a board-certified neuroradiologist.")
 
-elif not uploaded_files:
-    st.markdown('<div style="text-align:center; padding:100px; opacity:0.2; font-family:Space Mono; letter-spacing:2px;">AWAITING MRI INPUT SEQUENCE</div>', unsafe_allow_html=True)
-
-st.markdown("""
-<br><div style='text-align:center; font-family:Space Mono; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.1); padding:40px 0;'>
-NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE ONLY &nbsp;·&nbsp; 2026
-</div>
-""", unsafe_allow_html=True)
+st.markdown("<br><div style='text-align:center; font-family:Space Mono; font-size:9px; color:rgba(99,179,237,0.1); padding:40px 0;'>NEUROSCAN AI · INSTITUTIONAL RESEARCH USE ONLY · 2026</div>", unsafe_allow_html=True)
