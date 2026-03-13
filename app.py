@@ -87,39 +87,67 @@ def preprocess(image):
     arr[:, :, 2] -= 123.68
     return np.expand_dims(arr, axis=0)
 
+# --- GRAD-CAM PATCH FOR KERAS 3 ---
 def generate_gradcam(image, model_path):
     import tensorflow as tf
-    # Load model dengan compile=False agar lebih cepat
-    model = tf.keras.models.load_model(model_path, compile=False)
+    import json
+    import h5py
+
+    # PATCH: Memperbaiki config H5 secara langsung sebelum di-load
+    # Menghapus 'batch_shape' yang menyebabkan error di Keras 3
+    def fixed_load_model(path):
+        try:
+            return tf.keras.models.load_model(path, compile=False)
+        except Exception:
+            # Jika gagal, bongkar file H5 dan hapus batch_shape secara manual
+            with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            with h5py.File(path, 'r') as f:
+                model_config = f.attrs.get('model_config')
+                if model_config:
+                    config_dict = json.loads(model_config.decode('utf-8'))
+                    # Cari InputLayer dan ganti batch_shape jadi shape
+                    for layer in config_dict['config']['layers']:
+                        if 'batch_shape' in layer['config']:
+                            layer['config']['shape'] = layer['config'].pop('batch_shape')
+                    
+                    # Tulis ulang file H5 sementara
+                    with h5py.File(tmp_path, 'w') as f_new:
+                        for key in f.keys(): f.copy(key, f_new)
+                        f_new.attrs['model_config'] = json.dumps(config_dict).encode('utf-8')
+            
+            patched_model = tf.keras.models.load_model(tmp_path, compile=False)
+            os.remove(tmp_path)
+            return patched_model
+
+    model = fixed_load_model(model_path)
     img_array = preprocess(image)
     
-    # Deteksi model inti di dalam Sequential
+    # Navigasi ke base ResNet
     target_model = model
     if hasattr(model, 'layers') and isinstance(model.layers[0], tf.keras.Model):
         target_model = model.layers[0]
 
-    # Target layer ResNet50 terakhir
     target_layer = target_model.get_layer('conv5_block3_out')
-
-    # Bangun model fungsional untuk Grad-CAM
-    grad_model = tf.keras.models.Model(
-        [target_model.inputs], 
-        [target_layer.output, target_model.output]
-    )
+    
+    # Bangun grad model
+    grad_model = tf.keras.models.Model([target_model.inputs], [target_layer.output, target_model.output])
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
+        # Unpack jika tuple
+        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
+        if isinstance(predictions, (list, tuple)): predictions = predictions[0]
+        
         loss = predictions[:, tf.argmax(predictions[0])]
 
-    # Gradient & Heatmap
     grads = tape.gradient(loss, conv_outputs)
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    
     heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     
-    # Process heatmap ke citra
     heatmap_np = heatmap.numpy()
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
@@ -149,7 +177,7 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("v3.0 Stable Dashboard: Forced Legacy Engine")
+    st.caption("v3.1 Final Patch: Auto-Fixing Keras Compatibility")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
@@ -169,16 +197,18 @@ if uploaded_files:
                 gradcam_img = None
                 if os.path.exists(MODEL_PATH):
                     try: gradcam_img = generate_gradcam(img, MODEL_PATH)
-                    except Exception as e: st.warning(f"Engine Log: {e}")
+                    except Exception as e: st.warning(f"XAI Engine Log: {e}")
             all_results.append({
                 'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img,
                 'filename': f.name, 'label': {0:"Glioma", 1:"Meningioma", 2:"No Tumor", 3:"Pituitary"}.get(pred_idx, "Unknown"),
                 'confidence': float(np.max(out[0])) * 100
             })
+        
         s1, s2, s3 = st.columns(3)
         s1.markdown(f"<div class='stat-box'>SCANS<br><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
         s2.markdown(f"<div class='stat-box'>AVG ACC<br><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
         s3.markdown(f"<div class='stat-box'>TIME<br><h2>{time.time()-t_start:.1f}s</h2></div>", unsafe_allow_html=True)
+
         for res in all_results:
             is_tumor = res['label'] != "No Tumor"
             st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}">{res["label"].upper()} - {res["filename"]} ({res["confidence"]:.1f}%)</div>', unsafe_allow_html=True)
@@ -187,7 +217,8 @@ if uploaded_files:
             with c2: 
                 if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
                 else: st.info("XAI Engine Unavailable for this scan")
-            with c3: st.image(res['saliency'], caption="Saliency (Occlusion)", use_container_width=True)
+            with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
+
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
 else:
     st.markdown("<center><br><br><div style='opacity:0.3'>Awaiting MRI scan input...</div></center>", unsafe_allow_html=True)
