@@ -20,91 +20,55 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800;900&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body, .stApp, [class*="css"] {
-    font-family: 'Syne', sans-serif;
-    background: #060810 !important;
-    color: #C9D1E0 !important;
-}
-
+html, body, .stApp { font-family: 'Syne', sans-serif; background: #060810 !important; color: #C9D1E0 !important; }
 .stApp::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background-image:
-        linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
-    pointer-events: none;
+    content: ''; position: fixed; inset: 0; z-index: 0;
+    background-image: linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none;
 }
-
-#MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 2rem 3rem !important; max-width: 1400px !important; }
-
-.med-info-container, .stat-grid {
-    display: grid; gap: 15px; margin-bottom: 30px;
-    grid-template-columns: repeat(4, 1fr);
-}
-
-@media (max-width: 1024px) {
-    .med-info-container, .stat-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 768px) {
-    .med-info-container { grid-template-columns: repeat(1, 1fr); }
-    .hero-title { font-size: 42px !important; }
-}
-
-.medical-card {
-    background: rgba(99,179,237,0.04);
-    border: 1px solid rgba(99,179,237,0.1);
-    padding: 16px; border-radius: 4px; height: 100%;
-}
-.medical-card b { color: #63B3ED; font-size: 13px; font-family: 'Space Mono', monospace; display: block; margin-bottom: 8px; letter-spacing: 1px;}
-
-.stat-item {
-    background: rgba(10,14,22,0.8);
-    border: 1px solid rgba(99,179,237,0.08);
-    border-radius: 4px; padding: 20px;
-}
+.med-info-container, .stat-grid { display: grid; gap: 15px; margin-bottom: 30px; grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 768px) { .med-info-container, .stat-grid { grid-template-columns: repeat(1, 1fr); } }
+.medical-card { background: rgba(99,179,237,0.04); border: 1px solid rgba(99,179,237,0.1); padding: 16px; border-radius: 4px; }
+.stat-item { background: rgba(10,14,22,0.8); border: 1px solid rgba(99,179,237,0.08); border-radius: 4px; padding: 20px; }
 .stat-value { font-size: 28px; font-weight: 900; color: #EDF2F7; }
-
-.scan-result {
-    position: relative; background: rgba(10,14,22,0.8);
-    border: 1px solid rgba(99,179,237,0.1);
-    border-radius: 4px; padding: 20px; margin-bottom: 12px;
-}
-.scan-result.tumor::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #FC8181;
-}
-.scan-result.invalid::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #ecc94b;
-}
-
-.finding-box {
-    background: rgba(255, 255, 255, 0.02);
-    border-left: 2px solid #63B3ED;
-    padding: 10px; margin-top: 10px; font-size: 11px;
-}
+.scan-result { position: relative; background: rgba(10,14,22,0.8); border: 1px solid rgba(99,179,237,0.1); border-radius: 4px; padding: 20px; margin-bottom: 12px; }
+.scan-result.tumor::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #FC8181; }
+.scan-result.invalid::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #ecc94b; }
+.finding-box { background: rgba(255, 255, 255, 0.02); border-left: 2px solid #63B3ED; padding: 10px; margin-top: 10px; font-size: 11px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── DATA DICTIONARY ──────────────────────────────────────────────────────────
 FINDINGS = {
-    "Glioma": "Infiltrative lesion detected. Borders appear irregular, suggesting high parenchymal involvement.",
-    "Meningioma": "Circumscribed extra-axial mass. Dural attachment suspected; localized compression observed.",
-    "Pituitary": "Focal enlargement in the sellar region. Consider clinical correlation with endocrine markers.",
-    "No Tumor": "No significant intracranial abnormalities identified in the analyzed sequence.",
-    "INVALID": "STRUCTURE ANOMALY: The uploaded image does not match neuro-imaging pixel distribution standards."
+    "Glioma": "Infiltrative lesion detected. Borders appear irregular.",
+    "Meningioma": "Circumscribed extra-axial mass. Dural attachment suspected.",
+    "Pituitary": "Focal enlargement in the sellar region.",
+    "No Tumor": "No significant intracranial abnormalities identified.",
+    "INVALID": "NON-MEDICAL DATA: Image structure does not match MRI morphological features."
 }
 
-# ── UTILITIES ────────────────────────────────────────────────────────────────
-def is_valid_mri(image):
-    img_gray = np.array(image.convert('L'))
-    # Validasi Teknis: MRI asli biasanya memiliki histogram yang sangat spesifik
-    if np.mean(img_gray) > 200 or np.mean(img_gray) < 5: return False 
-    if np.std(img_gray) < 18: return False 
+# ── ADVANCED VALIDATION (ANTI-CARTOON) ───────────────────────────────────────
+def is_genuine_mri(image):
+    """Mendeteksi apakah gambar benar-benar scan medis atau gambar umum/kartun"""
+    img_cv = np.array(image.convert('L'))
+    
+    # 1. Laplacian Variance (Cek ketajaman tekstur)
+    # Kartun punya tepi sangat tajam (varians tinggi) atau sangat mulus (varians sangat rendah)
+    # MRI punya noise natural di area otak.
+    laplacian_var = cv2.Laplacian(img_cv, cv2.CV_64F).var()
+    
+    # 2. Histogram Analysis
+    # MRI didominasi warna hitam (background) dan gradasi abu-abu.
+    # Kartun/Ilustrasi biasanya punya distribusi warna yang 'flat' di area tertentu.
+    hist = cv2.calcHist([img_cv], [0], None, [256], [0, 256])
+    peak_black = hist[0:10].sum() / hist.sum() # Dominasi area hitam
+    
+    # Thresholding ketat: MRI biasanya punya laplacian_var di rentang tertentu
+    if laplacian_var < 10 or laplacian_var > 1000: return False # Terlalu mulus atau terlalu kontras (kartun)
+    if peak_black < 0.2: return False # Terlalu banyak warna terang (bukan MRI)
+    
     return True
 
 def apply_clahe(image):
@@ -114,13 +78,11 @@ def apply_clahe(image):
 
 def create_pdf(results):
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, "NEUROSCAN CLINICAL REPORT", ln=True, align='C')
-    pdf.ln(10)
     for idx, res in enumerate(results):
         pdf.set_font("Arial", 'B', 10); pdf.cell(0, 8, f"CASE #{idx+1} - {res['filename']}", ln=True)
-        label = res['label'] if res['label'] != "INVALID" else "NON-MRI DATA DETECTED"
+        label = res['label'] if res['label'] != "INVALID" else "REJECTED DATA"
         pdf.cell(0, 8, f"RESULT: {label}", ln=True); pdf.ln(5)
     return pdf.output(dest='S').encode('latin-1')
 
@@ -147,10 +109,10 @@ st.markdown('<div class="hero-title" style="font-size:60px; font-weight:900; lin
 
 st.markdown("""
 <div class="med-info-container">
-    <div class="medical-card"><b>GLIOMA</b><p>Diffuse parenchymal tumor.</p></div>
-    <div class="medical-card"><b>MENINGIOMA</b><p>Extra-axial dural tumor.</p></div>
-    <div class="medical-card"><b>PITUITARY</b><p>Sellar expansion adenoma.</p></div>
-    <div class="medical-card"><b>NO TUMOR</b><p>Normal imaging sequence.</p></div>
+    <div class="medical-card"><b>GLIOMA</b><p>Invasive tumor.</p></div>
+    <div class="medical-card"><b>MENINGIOMA</b><p>Extra-axial tumor.</p></div>
+    <div class="medical-card"><b>PITUITARY</b><p>Sellar adenoma.</p></div>
+    <div class="medical-card"><b>NO TUMOR</b><p>Normal imaging.</p></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -163,8 +125,9 @@ if files:
         with st.status("Analyzing Sequences...", expanded=True) as status:
             for f in files:
                 img = Image.open(f).convert('RGB')
-                # LOGIKA: Cek apakah gambar valid MRI atau gambar random (SpongeBob, dll)
-                if not is_valid_mri(img):
+                
+                # VALIDASI GANDA: Teknis (is_genuine_mri) & AI Confidence
+                if not is_genuine_mri(img):
                     all_res.append({'image': img, 'filename': f.name, 'label': 'INVALID', 'confidence': 0, 'probs': [0]*4})
                     continue
                 
@@ -172,21 +135,21 @@ if files:
                 conf = float(np.max(out[0])) * 100
                 idx = int(np.argmax(out[0]))
                 
-                # SECURITY THRESHOLD: Jika confidence rendah, anggap tidak valid
-                final_label = CLASS_NAMES[idx] if conf > 85 else "INVALID"
+                # Jika model dipaksa menebak kartun, biasanya confidence-nya 'palsu'. 
+                # Kita gabungkan dengan filter tekstur di atas.
+                final_label = CLASS_NAMES[idx] if conf > 92 else "INVALID"
                 
                 all_res.append({
                     'image': img, 'filename': f.name, 'label': final_label, 
-                    'confidence': conf, 'probs': out[0].tolist(),
-                    'saliency': img 
+                    'confidence': conf, 'probs': out[0].tolist()
                 })
             status.update(label="Analysis Finalized", state="complete", expanded=False)
         st.session_state['results'] = all_res
 
-# ── RENDER RESULTS (GRID 3-KOLOM) ──
+# ── RENDER RESULTS ──
 if 'results' in st.session_state:
     res = st.session_state['results']
-    st.markdown(f'<div class="stat-grid"><div class="stat-item"><b>Total</b><div class="stat-value">{len(res)}</div></div><div class="stat-item"><b>Detected</b><div class="stat-value">{sum(1 for r in res if r["label"] not in ["No Tumor", "INVALID"])}</div></div><div class="stat-item"><b>Invalid</b><div class="stat-value">{sum(1 for r in res if r["label"]=="INVALID")}</div></div><div class="stat-item"><b>Latency</b><div class="stat-value">1.2s</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="stat-grid"><div class="stat-item"><b>Total</b><div class="stat-value">{len(res)}</div></div><div class="stat-item"><b>Detected</b><div class="stat-value">{sum(1 for r in res if r["label"] not in ["No Tumor", "INVALID"])}</div></div><div class="stat-item"><b>Invalid</b><div class="stat-value">{sum(1 for r in res if r["label"]=="INVALID")}</div></div><div class="stat-item"><b>Status</b><div class="stat-value">SECURE</div></div></div>', unsafe_allow_html=True)
 
     n_cols = 3
     for i in range(0, len(res), n_cols):
@@ -200,7 +163,7 @@ if 'results' in st.session_state:
                 st.markdown(f'<div class="scan-result {st_class}"><div class="result-label" style="font-weight:900;">{item["label"].upper()}</div><div style="font-size:10px; opacity:0.6;">{item["filename"]}</div></div>', unsafe_allow_html=True)
                 
                 if is_inv:
-                    st.error("⚠️ DATA REJECTED: Not a valid MRI sequence.")
+                    st.error("🚨 SECURITY ALERT: Non-medical image detected. Analysis rejected to prevent misdiagnosis.")
                     st.image(item['image'], use_container_width=True)
                 else:
                     t1, t2 = st.tabs(["VIEW", "DATA"])
