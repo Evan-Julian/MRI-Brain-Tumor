@@ -4,6 +4,8 @@ import numpy as np
 import time
 import tempfile
 import cv2
+import json
+import h5py
 from PIL import Image
 from fpdf import FPDF
 from datetime import datetime
@@ -87,35 +89,36 @@ def preprocess(image):
     arr[:, :, 2] -= 123.68
     return np.expand_dims(arr, axis=0)
 
-# --- GRAD-CAM PATCH FOR KERAS 3 ---
+# --- GRAD-CAM ENGINE ---
 def generate_gradcam(image, model_path):
     import tensorflow as tf
-    import json
-    import h5py
 
-    # PATCH: Memperbaiki config H5 secara langsung sebelum di-load
-    # Menghapus 'batch_shape' yang menyebabkan error di Keras 3
     def fixed_load_model(path):
         try:
             return tf.keras.models.load_model(path, compile=False)
         except Exception:
-            # Jika gagal, bongkar file H5 dan hapus batch_shape secara manual
-            with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
-                tmp_path = tmp.name
-            
+            # Bypass error 'batch_shape' dengan memanipulasi metadata H5
             with h5py.File(path, 'r') as f:
                 model_config = f.attrs.get('model_config')
-                if model_config:
-                    config_dict = json.loads(model_config.decode('utf-8'))
-                    # Cari InputLayer dan ganti batch_shape jadi shape
-                    for layer in config_dict['config']['layers']:
-                        if 'batch_shape' in layer['config']:
-                            layer['config']['shape'] = layer['config'].pop('batch_shape')
-                    
-                    # Tulis ulang file H5 sementara
-                    with h5py.File(tmp_path, 'w') as f_new:
-                        for key in f.keys(): f.copy(key, f_new)
-                        f_new.attrs['model_config'] = json.dumps(config_dict).encode('utf-8')
+                # Penanganan error 'str' object has no attribute 'decode'
+                if isinstance(model_config, bytes):
+                    model_config = model_config.decode('utf-8')
+                
+                config_dict = json.loads(model_config)
+                
+                # Mengubah batch_shape menjadi shape untuk kompatibilitas Keras 3
+                layers = config_dict.get('config', {}).get('layers', [])
+                for layer in layers:
+                    if 'batch_shape' in layer.get('config', {}):
+                        layer['config']['shape'] = layer['config'].pop('batch_shape')
+                
+                with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                with h5py.File(tmp_path, 'w') as f_new:
+                    for key in f.keys():
+                        f.copy(key, f_new)
+                    f_new.attrs['model_config'] = json.dumps(config_dict).encode('utf-8')
             
             patched_model = tf.keras.models.load_model(tmp_path, compile=False)
             os.remove(tmp_path)
@@ -124,19 +127,18 @@ def generate_gradcam(image, model_path):
     model = fixed_load_model(model_path)
     img_array = preprocess(image)
     
-    # Navigasi ke base ResNet
+    # Navigasi ke sub-model jika menggunakan Sequential wrapper
     target_model = model
     if hasattr(model, 'layers') and isinstance(model.layers[0], tf.keras.Model):
         target_model = model.layers[0]
 
+    # Target layer konvolusi terakhir pada ResNet50
     target_layer = target_model.get_layer('conv5_block3_out')
     
-    # Bangun grad model
     grad_model = tf.keras.models.Model([target_model.inputs], [target_layer.output, target_model.output])
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
-        # Unpack jika tuple
         if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
         if isinstance(predictions, (list, tuple)): predictions = predictions[0]
         
@@ -177,7 +179,7 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("v3.1 Final Patch: Auto-Fixing Keras Compatibility")
+    st.caption("v3.2: Robust XAI Visualization & Multi-Model Diagnostics")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
@@ -215,9 +217,9 @@ if uploaded_files:
             c1, c2, c3 = st.columns(3)
             with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
-                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
-                else: st.info("XAI Engine Unavailable for this scan")
-            with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
+                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Localization", use_container_width=True)
+                else: st.info("Grad-CAM Engine Unavailable")
+            with c3: st.image(res['saliency'], caption="Saliency (Occlusion Map)", use_container_width=True)
 
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
 else:
