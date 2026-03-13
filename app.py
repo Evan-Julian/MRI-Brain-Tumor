@@ -4,7 +4,7 @@ import numpy as np
 import time
 import tempfile
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageEnhance
 from fpdf import FPDF
 from datetime import datetime
 
@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS (Dengan Tambahan untuk Chart & Chat) ──────────────────────────────────
+# ── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800;900&display=swap');
@@ -28,7 +28,6 @@ html, body, .stApp, [class*="css"] {
     color: #C9D1E0 !important;
 }
 
-/* Animated grid background */
 .stApp::before {
     content: '';
     position: fixed; inset: 0; z-index: 0;
@@ -41,7 +40,6 @@ html, body, .stApp, [class*="css"] {
 
 .stApp > * { position: relative; z-index: 1; }
 
-/* Hide default streamlit elements */
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 2rem 3rem !important; max-width: 1400px !important; }
 
@@ -58,9 +56,7 @@ html, body, .stApp, [class*="css"] {
     color: rgba(99,179,237,0.6);
     text-transform: uppercase;
 }
-.neuro-logo span {
-    color: #63B3ED; font-weight: 700;
-}
+.neuro-logo span { color: #63B3ED; font-weight: 700; }
 .neuro-badge {
     font-family: 'Space Mono', monospace;
     font-size: 10px; letter-spacing: 3px;
@@ -92,19 +88,11 @@ html, body, .stApp, [class*="css"] {
 }
 
 /* ── UPLOAD ZONE ── */
-.upload-wrapper [data-testid="stFileUploader"] {
-    background: transparent !important;
-}
 [data-testid="stFileUploader"] > div {
     background: rgba(99,179,237,0.02) !important;
     border: 1px dashed rgba(99,179,237,0.2) !important;
     border-radius: 4px !important;
     padding: 40px !important;
-    transition: all 0.3s ease;
-}
-[data-testid="stFileUploader"] > div:hover {
-    background: rgba(99,179,237,0.05) !important;
-    border-color: rgba(99,179,237,0.4) !important;
 }
 
 /* ── BUTTON ── */
@@ -119,12 +107,6 @@ html, body, .stApp, [class*="css"] {
     text-transform: uppercase !important;
     padding: 14px 32px !important;
     width: 100% !important;
-    transition: all 0.2s ease !important;
-}
-.stButton > button:hover {
-    background: rgba(99,179,237,0.08) !important;
-    border-color: #63B3ED !important;
-    color: #EDF2F7 !important;
 }
 
 /* ── RESULT CARDS ── */
@@ -136,9 +118,7 @@ html, body, .stApp, [class*="css"] {
     padding: 20px;
     margin-bottom: 12px;
     overflow: hidden;
-    transition: border-color 0.3s;
 }
-.scan-result:hover { border-color: rgba(99,179,237,0.3); }
 .scan-result::before {
     content: '';
     position: absolute; top: 0; left: 0;
@@ -161,13 +141,6 @@ html, body, .stApp, [class*="css"] {
     color: rgba(99,179,237,0.4);
     text-transform: uppercase;
 }
-.result-confidence {
-    font-family: 'Space Mono', monospace;
-    font-size: 28px; font-weight: 700;
-    color: #63B3ED;
-    text-align: right;
-}
-.result-confidence.tumor { color: #FC8181; }
 
 /* ── STAT GRID ── */
 .stat-grid {
@@ -191,27 +164,7 @@ html, body, .stApp, [class*="css"] {
 }
 .stat-value span { color: #63B3ED; font-size: 16px; font-weight: 400; }
 
-/* ── CHATBOX MOCKUP ── */
-.chat-container {
-    background: rgba(10,14,22,0.9);
-    border: 1px solid rgba(99,179,237,0.15);
-    border-radius: 8px;
-    padding: 15px;
-    height: 300px;
-    overflow-y: auto;
-}
-.chat-msg {
-    margin-bottom: 12px;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-}
-.chat-ai { color: #63B3ED; }
-.chat-user { color: #EDF2F7; opacity: 0.8; }
-
-.neo-divider {
-    border: none; border-top: 1px solid rgba(99,179,237,0.08);
-    margin: 32px 0;
-}
+.neo-divider { border: none; border-top: 1px solid rgba(99,179,237,0.08); margin: 32px 0; }
 
 .idle-state {
     text-align: center; padding: 80px 40px;
@@ -219,10 +172,7 @@ html, body, .stApp, [class*="css"] {
     border-radius: 4px;
     background: rgba(99,179,237,0.01);
 }
-.idle-icon {
-    font-size: 48px; margin-bottom: 20px;
-    opacity: 0.3;
-}
+.idle-icon { font-size: 48px; margin-bottom: 20px; opacity: 0.3; }
 .idle-text {
     font-family: 'Space Mono', monospace;
     font-size: 11px; letter-spacing: 3px;
@@ -243,6 +193,15 @@ html, body, .stApp, [class*="css"] {
 .stTabs [aria-selected="true"] {
     border-color: #63B3ED !important;
     color: #63B3ED !important;
+}
+
+/* Control Panel for Image Augmentation */
+.control-panel {
+    background: rgba(99,179,237,0.03);
+    border: 1px solid rgba(99,179,237,0.1);
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -323,7 +282,7 @@ def generate_saliency(session, image: Image.Image, pred_class: int) -> Image.Ima
     base_score = float(session.run(None, {inp_name: base_batch})[0][0][pred_class])
 
     H, W = 224, 224
-    stride = 14 # Reduced for better resolution
+    stride = 14
     patch  = 28 
     saliency = np.zeros((H, W), dtype=np.float32)
 
@@ -355,7 +314,7 @@ CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 st.markdown("""
 <div class="neuro-header">
     <div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div>
-    <div class="neuro-badge">ResNet50 · ONNX Runtime · v2.1</div>
+    <div class="neuro-badge">ResNet50 · ONNX Runtime · v2.2</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -371,12 +330,18 @@ with col_hero:
     <div class="hero-sub">// Precision Neuro-Imaging Analytics</div>
     """, unsafe_allow_html=True)
     
-    # ── ADDITIONAL FEATURE: AI ASSISTANT CHAT ──
-    with st.expander("💬 CLINICAL AI ASSISTANT", expanded=False):
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        st.markdown('<div class="chat-msg chat-ai"><b>AI:</b> System ready. How can I help you interpret the scan results?</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.text_input("Query model (e.g., 'What is Glioma?')", key="chat_input", label_visibility="collapsed")
+    # Feature Description replaced AI chat
+    st.markdown("""
+    <div style="background: rgba(99,179,237,0.05); padding: 20px; border-radius: 4px; border: 1px solid rgba(99,179,237,0.1);">
+        <p style="font-family:'Space Mono', monospace; font-size:11px; color:#63B3ED; margin-bottom:10px;">[ SYSTEM_CAPABILITIES ]</p>
+        <ul style="font-size:12px; color:rgba(201,209,224,0.7); line-height:1.6; list-style-type: '→ '; padding-left:15px;">
+            <li>Saliency Mapping (Occlusion Sensitivity)</li>
+            <li>Real-time Image Augmentation Engine</li>
+            <li>Batch Processing & Clinical PDF Export</li>
+            <li>Class Probability Distribution</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col_upload:
     session = load_model()
@@ -426,98 +391,96 @@ if uploaded_files:
             })
             
         progress_bar.empty()
-        t_total = time.time() - t_start
+        st.session_state['analysis_results'] = all_results
+        st.session_state['total_time'] = time.time() - t_start
 
-        # ── EXTENDED STATS ──
-        avg_conf = np.mean([r['confidence'] for r in all_results])
-        tumor_found = sum(1 for r in all_results if r['label'].lower() != 'no tumor')
-        
-        st.markdown(f"""
-        <div class="stat-grid">
-            <div class="stat-item">
-                <div class="stat-label">Scans Processed</div>
-                <div class="stat-value">{len(all_results)}<span> units</span></div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Abnormalities</div>
-                <div class="stat-value">{tumor_found}<span> detected</span></div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Avg Confidence</div>
-                <div class="stat-value">{avg_conf:.1f}<span>%</span></div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Processing Time</div>
-                <div class="stat-value">{t_total:.2f}<span>s</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+if 'analysis_results' in st.session_state:
+    results = st.session_state['analysis_results']
+    t_total = st.session_state['total_time']
+    
+    # ── STATS ──
+    avg_conf = np.mean([r['confidence'] for r in results])
+    tumor_found = sum(1 for r in results if r['label'].lower() != 'no tumor')
+    
+    st.markdown(f"""
+    <div class="stat-grid">
+        <div class="stat-item"><div class="stat-label">Processed</div><div class="stat-value">{len(results)}<span> u</span></div></div>
+        <div class="stat-item"><div class="stat-label">Abnormalities</div><div class="stat-value">{tumor_found}<span> detect</span></div></div>
+        <div class="stat-item"><div class="stat-label">Avg Conf</div><div class="stat-value">{avg_conf:.1f}<span>%</span></div></div>
+        <div class="stat-item"><div class="stat-label">Time</div><div class="stat-value">{t_total:.2f}<span>s</span></div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # ── BATCH INSIGHTS (NEW FEATURE) ──
-        if n > 1:
-            with st.expander("📊 BATCH DISTRIBUTION ANALYSIS", expanded=True):
-                df = pd.DataFrame([{'Label': r['label'], 'Conf': r['confidence']} for r in all_results])
-                chart_col1, chart_col2 = st.columns(2)
-                with chart_col1:
-                    st.caption("Detection Frequency")
-                    st.bar_chart(df['Label'].value_counts())
-                with chart_col2:
-                    st.caption("Confidence Levels")
-                    st.line_chart(df['Conf'])
+    # ── BATCH ANALYSIS ──
+    if len(results) > 1:
+        with st.expander("📊 BATCH DISTRIBUTION ANALYSIS", expanded=False):
+            df = pd.DataFrame([{'Label': r['label'], 'Conf': r['confidence']} for r in results])
+            c1, c2 = st.columns(2)
+            with c1: st.bar_chart(df['Label'].value_counts())
+            with c2: st.line_chart(df['Conf'])
 
-        st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
+    st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
 
-        # ── RESULTS GRID ──
-        ncols = 3
-        for row_start in range(0, len(all_results), ncols):
-            row_items = all_results[row_start:row_start + ncols]
-            cols = st.columns(ncols, gap="medium")
-            for col_idx, res in enumerate(row_items):
-                is_tumor = res["label"].lower() != "no tumor"
-                accent = "#FC8181" if is_tumor else "#63B3ED"
-                with cols[col_idx]:
-                    st.markdown(f"""
-                    <div class="scan-result {'tumor' if is_tumor else ''}">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                            <div>
-                                <div class="result-label {'tumor' if is_tumor else ''}">{res["label"].upper()}</div>
-                                <div class="result-meta">{res["filename"][:25]}...<br>{res['size']} PX</div>
-                            </div>
-                            <div class="result-confidence {'tumor' if is_tumor else ''}">{res["confidence"]:.1f}%</div>
+    # ── RESULTS GRID ──
+    ncols = 3
+    for row_start in range(0, len(results), ncols):
+        row_items = results[row_start:row_start + ncols]
+        cols = st.columns(ncols, gap="medium")
+        for col_idx, res in enumerate(row_items):
+            is_tumor = res["label"].lower() != "no tumor"
+            with cols[col_idx]:
+                st.markdown(f"""
+                <div class="scan-result {'tumor' if is_tumor else ''}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <div class="result-label {'tumor' if is_tumor else ''}">{res["label"].upper()}</div>
+                            <div class="result-meta">{res["filename"][:20]}... | {res['size']} PX</div>
                         </div>
+                        <div class="result-confidence {'tumor' if is_tumor else ''}">{res["confidence"]:.1f}%</div>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
-                    tab1, tab2, tab3 = st.tabs(["📷 RAW", "🔥 HEATMAP", "📊 PROBS"])
-                    with tab1:
-                        st.image(res["image"], use_container_width=True)
-                    with tab2:
-                        st.image(res["saliency"], use_container_width=True)
-                    with tab3:
-                        for ci, prob in enumerate(res["probs"]):
-                            name = CLASS_NAMES.get(ci, f"C{ci}")
-                            pct = prob * 100
-                            is_top = ci == int(np.argmax(res["probs"]))
-                            st.markdown(f"<p style='font-size:10px; margin-bottom:2px; color:rgba(255,255,255,0.6)'>{name}</p>", unsafe_allow_html=True)
-                            st.progress(min(pct / 100, 1.0))
+                tab1, tab2, tab3 = st.tabs(["📷 VIEWPORT", "🔥 HEATMAP", "📊 PROBS"])
+                
+                with tab1:
+                    # ── IMAGE AUGMENTATION CONTROLS (NEW) ──
+                    st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
+                    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
+                    with ctrl_col1:
+                        bright = st.slider("BRIGHT", 0.5, 2.0, 1.0, 0.1, key=f"br_{res['filename']}")
+                    with ctrl_col2:
+                        cont = st.slider("CONTRAST", 0.5, 2.0, 1.0, 0.1, key=f"ct_{res['filename']}")
+                    with ctrl_col3:
+                        sharp = st.slider("SHARP", 0.0, 3.0, 1.0, 0.1, key=f"sh_{res['filename']}")
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
+                    # Apply Augmentation
+                    enhanced_img = ImageEnhance.Brightness(res["image"]).enhance(bright)
+                    enhanced_img = ImageEnhance.Contrast(enhanced_img).enhance(cont)
+                    enhanced_img = ImageEnhance.Sharpness(enhanced_img).enhance(sharp)
+                    st.image(enhanced_img, use_container_width=True)
 
-        # ── PDF DOWNLOAD ──
-        col_dl, col_info = st.columns([1, 2])
-        with col_dl:
-            with st.spinner("Finalizing PDF..."):
-                pdf_bytes = create_pdf(all_results)
-            st.download_button(
-                label="↓ DOWNLOAD CLINICAL REPORT",
-                data=pdf_bytes,
-                file_name=f"NeuroScan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                mime="application/pdf"
-            )
-        with col_info:
-            st.info("💡 Pro-Tip: The Saliency Map shows where the AI is looking. Red areas indicate high influence on the final diagnosis.")
+                with tab2:
+                    st.image(res["saliency"], use_container_width=True)
+                
+                with tab3:
+                    for ci, prob in enumerate(res["probs"]):
+                        name = CLASS_NAMES.get(ci, f"C{ci}")
+                        st.markdown(f"<p style='font-size:10px; margin-bottom:2px; color:rgba(255,255,255,0.6)'>{name} ({prob*100:.1f}%)</p>", unsafe_allow_html=True)
+                        st.progress(min(prob, 1.0))
 
-else:
+    st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
+
+    # ── PDF DOWNLOAD ──
+    col_dl, col_info = st.columns([1, 2])
+    with col_dl:
+        pdf_bytes = create_pdf(results)
+        st.download_button(label="↓ DOWNLOAD CLINICAL REPORT", data=pdf_bytes, file_name=f"NeuroScan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf")
+    with col_info:
+        st.info("🛠 Use the VIEWPORT sliders to enhance tissue contrast and improve visibility of lesion boundaries.")
+
+elif not uploaded_files:
     st.markdown("""
     <div class="idle-state">
         <div class="idle-icon">◎</div>
@@ -527,10 +490,7 @@ else:
 
 # ── FOOTER ───────────────────────────────────────────────────────────────────
 st.markdown("""
-<br>
-<div style='text-align:center; font-family:"Space Mono",monospace;
-font-size:9px; letter-spacing:4px; text-transform:uppercase;
-color:rgba(99,179,237,0.12); padding: 24px 0;'>
-NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE &nbsp;·&nbsp; v2.1
+<br><div style='text-align:center; font-family:"Space Mono",monospace; font-size:9px; letter-spacing:4px; text-transform:uppercase; color:rgba(99,179,237,0.12); padding: 24px 0;'>
+NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE &nbsp;·&nbsp; v2.2
 </div>
 """, unsafe_allow_html=True)
