@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="NeuroScan AI | Diagnostic",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded", # Memaksa sidebar terbuka saat pertama kali load
+    initial_sidebar_state="expanded", 
 )
 
 # ── CSS ──────────────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ html, body, .stApp, [class*="css"] {
     margin-top: 10px;
 }
 
-/* ── [NEW] KNOWLEDGE SECTION ── */
+/* ── KNOWLEDGE SECTION ── */
 .knowledge-section {
     background: rgba(6, 8, 16, 0.9);
     border: 1px solid rgba(99,179,237,0.12);
@@ -273,7 +273,7 @@ html, body, .stApp, [class*="css"] {
     border-color: rgba(72,187,120,0.2);
 }
 
-/* ── [NEW] INVALID WARNING CARD ── */
+/* ── INVALID WARNING CARD ── */
 .invalid-card {
     background: rgba(254,178,178,0.05);
     border: 1px solid rgba(252,129,129,0.3);
@@ -316,23 +316,23 @@ with st.sidebar:
     
     st.markdown("""
     <div class="medical-card">
-        <b>🧠 GLIOMA</b>
-        <p>Tumor yang tumbuh dari sel glial (sel penyokong otak). Cenderung invasif dan menyebar di jaringan otak sekitarnya.</p>
+        <b>GLIOMA</b>
+        <p>Tumors originating from glial cells (supporting brain tissue). Typically invasive and can spread to surrounding brain matter.</p>
     </div>
     <div class="medical-card">
-        <b>🛡️ MENINGIOMA</b>
-        <p>Tumor yang muncul dari meninges (selaput pelindung otak). Biasanya jinak namun dapat menekan saraf vital.</p>
+        <b>MENINGIOMA</b>
+        <p>Tumors arising from the meninges (brain protective layers). Usually benign but can compress vital neurological structures.</p>
     </div>
     <div class="medical-card">
-        <b>💧 PITUITARY</b>
-        <p>Tumor pada kelenjar pituitari di dasar otak. Dapat mempengaruhi hormon dan mengganggu penglihatan.</p>
+        <b>PITUITARY</b>
+        <p>Tumors on the pituitary gland at the brain's base. Can impact hormonal regulation and visual fields.</p>
     </div>
     <div class="medical-card">
-        <b>✅ NO TUMOR</b>
-        <p>Tidak ditemukan indikasi massa abnormal atau lesi patologis pada area scan yang dianalisis.</p>
+        <b>NO TUMOR</b>
+        <p>No indication of abnormal mass or pathological lesions found within the analyzed scan area.</p>
     </div>
     <p style="font-size: 9px; color: rgba(201,209,224,0.4); text-align: center; margin-top:20px;">
-        Tekan tanda <b>></b> di pojok kiri atas jika panel ini tertutup.
+        Click the <b>></b> icon at the top-left if this panel is collapsed.
     </p>
     """, unsafe_allow_html=True)
 
@@ -357,27 +357,20 @@ def create_pdf(results):
             pdf.add_page()
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(40, 40, 40)
-        pdf.cell(0, 8, safe(f"#{idx+1:02d}  {res['filename']}"), ln=True)
+        pdf.cell(0, 8, safe(f"#{idx+1:02d} | {res['filename']}"), ln=True)
 
-        # ── [NEW] Save MRI image to temp file ──
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_mri:
             res['image'].save(tmp_mri.name)
             tmp_mri_path = tmp_mri.name
 
-        # ── [NEW] Save heatmap/saliency image to temp file ──
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_heat:
             res['saliency'].save(tmp_heat.name)
             tmp_heat_path = tmp_heat.name
 
         y = pdf.get_y()
-
-        # MRI image on left
         pdf.image(tmp_mri_path, x=10, y=y, w=55)
-
-        # [NEW] Heatmap image next to MRI
         pdf.image(tmp_heat_path, x=68, y=y, w=55)
 
-        # Text info on right side
         pdf.set_xy(130, y + 2)
         pdf.set_font("Arial", 'B', 13)
         is_tumor = res['label'].lower() != 'no tumor'
@@ -389,21 +382,18 @@ def create_pdf(results):
         pdf.set_text_color(60, 60, 60)
         pdf.cell(0, 6, safe(f"Confidence: {res['confidence']:.2f}%"), ln=True)
 
-        # [NEW] Image size info
         pdf.set_x(130)
         pdf.set_font("Arial", '', 9)
         pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 5, safe(f"Image Size: {res['size']} px"), ln=True)
+        pdf.cell(0, 5, safe(f"Resolution: {res['size']} px"), ln=True)
 
-        # [NEW] Timestamp per scan
         pdf.set_x(130)
-        pdf.cell(0, 5, safe(f"Analyzed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"), ln=True)
+        pdf.cell(0, 5, safe(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"), ln=True)
 
-        # [NEW] Sub-labels for images
         pdf.set_font("Arial", 'I', 7)
         pdf.set_text_color(150, 150, 150)
         pdf.set_xy(10, y + 57)
-        pdf.cell(55, 4, "[ MRI SCAN ]", align='C')
+        pdf.cell(55, 4, "[ MRI RAW SCAN ]", align='C')
         pdf.set_xy(68, y + 57)
         pdf.cell(55, 4, "[ SALIENCY HEATMAP ]", align='C')
 
@@ -412,16 +402,13 @@ def create_pdf(results):
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(6)
 
-        # Cleanup temp files
-        if os.path.exists(tmp_mri_path):
-            os.remove(tmp_mri_path)
-        if os.path.exists(tmp_heat_path):
-            os.remove(tmp_heat_path)
+        if os.path.exists(tmp_mri_path): os.remove(tmp_mri_path)
+        if os.path.exists(tmp_heat_path): os.remove(tmp_heat_path)
 
     pdf.ln(8)
     pdf.set_font("Arial", 'I', 7)
     pdf.set_text_color(150, 150, 150)
-    pdf.multi_cell(0, 4, safe("DISCLAIMER: Research use only. Final diagnosis must be by a professional."))
+    pdf.multi_cell(0, 4, safe("DISCLAIMER: This report is generated by AI for institutional research use only. Final clinical diagnosis must be conducted by a certified medical professional."))
     out = pdf.output(dest="S")
     if isinstance(out, str):
         return out.encode("latin-1", errors="replace")
@@ -437,48 +424,36 @@ def load_model():
         return ort.InferenceSession(path, providers=['CPUExecutionProvider'])
     except: return None
 
-# ── [NEW] IMAGE VALIDATION / SECURITY FILTER ─────────────────────────────────
+# ── IMAGE VALIDATION FILTER ──────────────────────────────────────────────────
 def is_valid_mri(image: Image.Image) -> tuple[bool, str]:
     """
-    Validates whether an uploaded image is likely an MRI scan.
-    Uses 3 heuristics:
-      1. Grayscale histogram — MRI scans are near-grayscale (low color saturation)
-      2. Laplacian texture — MRI scans have distinctive texture (not too smooth, not too noisy)
-      3. Black background ratio — MRI scans typically have significant dark/black regions
-    Returns: (is_valid: bool, reason: str)
+    Validates uploaded images using medical-grade heuristics.
     """
     img_rgb = image.convert("RGB")
     img_arr = np.array(img_rgb, dtype=np.float32)
 
-    # --- Heuristic 1: Grayscale channel similarity ---
-    # MRI scans are grayscale-like; R, G, B channels should be very similar
     r, g, b = img_arr[:,:,0], img_arr[:,:,1], img_arr[:,:,2]
     rg_diff = np.mean(np.abs(r - g))
     rb_diff = np.mean(np.abs(r - b))
     gb_diff = np.mean(np.abs(g - b))
     avg_color_diff = (rg_diff + rb_diff + gb_diff) / 3.0
-    # Colorful images (photos, anime, cartoon) will have high color diff
+    
     if avg_color_diff > 30.0:
-        return False, f"Gambar terlalu berwarna (color diff={avg_color_diff:.1f}). MRI scan harus berupa gambar grayscale."
+        return False, f"Excessive color detected (diff={avg_color_diff:.1f}). MRI scans must be grayscale."
 
-    # --- Heuristic 2: Laplacian texture analysis ---
-    # MRI scans have moderate texture — not too flat, not extreme noise
     gray = np.array(image.convert("L"), dtype=np.float32)
-    # Simple Laplacian approximation using array differences
     lap_x = np.abs(gray[:, 1:] - gray[:, :-1])
     lap_y = np.abs(gray[1:, :] - gray[:-1, :])
     texture_score = (np.mean(lap_x) + np.mean(lap_y)) / 2.0
-    # Too-smooth images (solid colors, logos) or extremely noisy images are suspect
+    
     if texture_score < 1.5:
-        return False, f"Gambar terlalu smooth/flat (texture={texture_score:.2f}). MRI scan memiliki tekstur medis yang khas."
+        return False, f"Texture score too low ({texture_score:.2f}). Image lacks medical MRI characteristics."
     if texture_score > 80.0:
-        return False, f"Gambar terlalu noisy/berbeda (texture={texture_score:.2f}). Bukan karakteristik MRI scan."
+        return False, f"High noise level ({texture_score:.2f}). Does not match MRI scanning profile."
 
-    # --- Heuristic 3: Black background ratio ---
-    # MRI scans typically have a large dark/black background surrounding the brain
-    dark_pixel_ratio = np.mean(gray < 20)  # pixels nearly black
+    dark_pixel_ratio = np.mean(gray < 20) 
     if dark_pixel_ratio < 0.08:
-        return False, f"Background gelap terlalu sedikit ({dark_pixel_ratio*100:.1f}%). MRI scan biasanya memiliki latar hitam dominan."
+        return False, f"Insufficient background contrast ({dark_pixel_ratio*100:.1f}%). MRI scans usually have dominant black backgrounds."
 
     return True, "OK"
 
@@ -530,7 +505,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── [NEW] KNOWLEDGE SECTION — Di atas hero/upload area ────────────────────────
+# ── KNOWLEDGE SECTION ────────────────────────────────────────────────────────
 st.markdown("""
 <div class="knowledge-section">
     <div class="knowledge-title">// Brain Tumor Knowledge Base</div>
@@ -538,31 +513,25 @@ st.markdown("""
         <div class="knowledge-card">
             <div class="k-icon">🧠</div>
             <div class="k-title">Glioma</div>
-            <div class="k-type">Invasif · Grade I–IV</div>
+            <div class="k-type">Invasive · Grade I–IV</div>
             <div class="k-desc">
-                Tumor yang berasal dari sel glial, yaitu sel penyokong dan pelindung neuron. 
-                Glioma bersifat invasif dan dapat menyebar ke jaringan otak sekitarnya. 
-                Grade tinggi (GBM) sangat agresif dan memerlukan penanganan segera.
+                Derived from glial cells that support neurons. Highly invasive and spreads across brain tissue. High-grade (GBM) variants require immediate clinical intervention.
             </div>
         </div>
         <div class="knowledge-card">
             <div class="k-icon">🛡️</div>
             <div class="k-title">Meningioma</div>
-            <div class="k-type">Umumnya Jinak · Slow-Growing</div>
+            <div class="k-type">Typically Benign · Slow-Growing</div>
             <div class="k-desc">
-                Berasal dari meninges, selaput pelindung yang melapisi otak dan sumsum tulang belakang. 
-                Umumnya jinak dan tumbuh lambat, namun lokasi tertentu dapat menekan saraf vital 
-                dan menyebabkan gangguan neurologis serius.
+                Arising from the protective meningeal layers. While slow-growing, specific locations can compress vital nerves causing severe neurological deficits.
             </div>
         </div>
         <div class="knowledge-card">
             <div class="k-icon">💧</div>
             <div class="k-title">Pituitary</div>
-            <div class="k-type">Hormonal · Kelenjar Pituitari</div>
+            <div class="k-type">Hormonal · Pituitary Gland</div>
             <div class="k-desc">
-                Tumor pada kelenjar pituitari di dasar otak, yang mengontrol sistem hormonal tubuh. 
-                Dapat memicu produksi hormon berlebih atau kekurangan. Gejala umum meliputi 
-                gangguan penglihatan dan ketidakseimbangan hormon.
+                Located at the brain's base, affecting hormonal balance. Symptoms include vision loss and endocrine imbalances due to excessive or deficient hormone production.
             </div>
         </div>
         <div class="knowledge-card no-tumor">
@@ -570,9 +539,7 @@ st.markdown("""
             <div class="k-title">No Tumor</div>
             <div class="k-type">Normal · Clear Scan</div>
             <div class="k-desc">
-                Tidak ditemukan indikasi massa abnormal, lesi patologis, atau pertumbuhan 
-                jaringan tidak normal pada area scan yang dianalisis. Hasil bersih menunjukkan 
-                struktur otak dalam batas normal.
+                No indication of abnormal mass, pathological lesions, or malignant growth detected. Brain structure appears within standard physiological limits.
             </div>
         </div>
     </div>
@@ -607,7 +574,7 @@ with col_hero:
 with col_upload:
     session = load_model()
     if session is None:
-        st.error("⚠ resnet_model.onnx not found.")
+        st.error("System Error: resnet_model.onnx not detected.")
         st.stop()
 
     uploaded_files = st.file_uploader(
@@ -620,13 +587,13 @@ with col_upload:
     <div style='font-family:"Space Mono",monospace; font-size:10px;
     letter-spacing:2px; color:rgba(99,179,237,0.25); text-align:center;
     margin-top:8px; text-transform:uppercase;'>
-    JPG / PNG format · Batch analysis active
+    JPG / PNG format supported · Batch analysis active
     </div>""", unsafe_allow_html=True)
 
 # ── RUN ANALYSIS ─────────────────────────────────────────────────────────────
 if uploaded_files:
     n = len(uploaded_files)
-    if st.button(f"RUN ANALYSIS · {n} SEQUENCE{'S' if n > 1 else ''}"):
+    if st.button(f"EXECUTE ANALYSIS · {n} SEQUENCE{'S' if n > 1 else ''}"):
         all_results = []
         invalid_results = []
         t_start = time.time()
@@ -636,7 +603,6 @@ if uploaded_files:
             progress_bar.progress((fi) / n, text=f"Analyzing {f.name}...")
             img = Image.open(f).convert('RGB')
 
-            # ── [NEW] Image Validation before running model ──
             valid, reason = is_valid_mri(img)
             if not valid:
                 invalid_results.append({
@@ -644,7 +610,7 @@ if uploaded_files:
                     'reason': reason,
                     'size': f"{img.size[0]}x{img.size[1]}"
                 })
-                continue  # Skip to next file, do not run model
+                continue
 
             batch = preprocess(img)
             inp = session.get_inputs()[0].name
@@ -673,25 +639,23 @@ if 'analysis_results' in st.session_state:
     invalid_list = st.session_state.get('invalid_results', [])
     t_total = st.session_state['total_time']
 
-    # ── [NEW] Display invalid/rejected images warning ──
     if invalid_list:
         st.markdown(f"""
         <div style="margin-bottom: 8px; font-family:'Space Mono',monospace; font-size:9px;
         letter-spacing:3px; color:rgba(252,129,129,0.5); text-transform:uppercase;">
-        ⚠ {len(invalid_list)} FILE DITOLAK — BUKAN MRI SCAN VALID
+        ⚠ {len(invalid_list)} FILE(S) REJECTED — NON-MRI SCAN DETECTED
         </div>
         """, unsafe_allow_html=True)
         for inv in invalid_list:
             st.markdown(f"""
             <div class="invalid-card">
-                <div class="inv-title">⛔ INVALID — {inv['filename']}</div>
-                <div class="inv-meta">{inv['size']} px · Rejected by MRI Security Filter</div>
+                <div class="inv-title">INVALID SEQUENCE — {inv['filename']}</div>
+                <div class="inv-meta">{inv['size']} px · Filtered by MRI Security Protocol</div>
                 <div class="inv-reason">{inv['reason']}</div>
             </div>
             """, unsafe_allow_html=True)
 
     if results:
-        # ── STATS (U diubah menjadi Seq) ──
         avg_conf = np.mean([r['confidence'] for r in results])
         tumor_found = sum(1 for r in results if r['label'].lower() != 'no tumor')
         
@@ -700,13 +664,12 @@ if 'analysis_results' in st.session_state:
             <div class="stat-item"><div class="stat-label">Processed</div><div class="stat-value">{len(results)}<span> seq</span></div></div>
             <div class="stat-item"><div class="stat-label">Abnormalities</div><div class="stat-value">{tumor_found}<span> detect</span></div></div>
             <div class="stat-item"><div class="stat-label">Avg Conf</div><div class="stat-value">{avg_conf:.1f}<span>%</span></div></div>
-            <div class="stat-item"><div class="stat-label">Time</div><div class="stat-value">{t_total:.2f}<span>s</span></div></div>
+            <div class="stat-item"><div class="stat-label">Latency</div><div class="stat-value">{t_total:.2f}<span>s</span></div></div>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
 
-        # ── RESULTS GRID ──
         ncols = 3
         for row_start in range(0, len(results), ncols):
             row_items = results[row_start:row_start + ncols]
@@ -726,7 +689,7 @@ if 'analysis_results' in st.session_state:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    tab1, tab2, tab3 = st.tabs(["📷 VIEWPORT", "🔥 HEATMAP", "📊 PROBS"])
+                    tab1, tab2, tab3 = st.tabs(["VIEWPORT", "HEATMAP", "PROBABILITIES"])
                     
                     with tab1:
                         st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
@@ -750,20 +713,18 @@ if 'analysis_results' in st.session_state:
 
         st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
 
-        # ── PDF DOWNLOAD ──
         col_dl, col_info = st.columns([1, 2])
         with col_dl:
             pdf_bytes = create_pdf(results)
-            st.download_button(label="↓ DOWNLOAD CLINICAL REPORT", data=pdf_bytes, file_name=f"NeuroScan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf")
+            st.download_button(label="DOWNLOAD CLINICAL REPORT", data=pdf_bytes, file_name=f"NeuroScan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf")
         with col_info:
-            st.info("ℹ️ Penjelasan Tumor: Glioma (Invasif), Meningioma (Pelindung Otak), Pituitary (Hormon), No Tumor (Normal). PDF report sekarang mencakup MRI + Heatmap.")
+            st.info("System Info: Classifications include Glioma (Invasive), Meningioma (Protective Layer), Pituitary (Hormonal), and No Tumor (Standard structure). PDF report includes raw MRI and saliency mapping.")
 
     elif not invalid_list:
-        # No results and no invalids — edge case
         st.markdown("""
         <div class="idle-state">
             <div class="idle-icon">◎</div>
-            <div class="idle-text">No valid results // Upload MRI sequences to analyze</div>
+            <div class="idle-text">No sequences found // Upload MRI data for analytics</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -771,7 +732,7 @@ elif not uploaded_files:
     st.markdown("""
     <div class="idle-state">
         <div class="idle-icon">◎</div>
-        <div class="idle-text">System offline // Awaiting MRI sequence upload</div>
+        <div class="idle-text">System standby // Awaiting MRI sequence upload</div>
     </div>
     """, unsafe_allow_html=True)
 
