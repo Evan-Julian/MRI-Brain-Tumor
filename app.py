@@ -123,7 +123,8 @@ def create_pdf(results):
         pdf.ln(5)
         if os.path.exists(tmp.name): os.remove(tmp.name)
         
-    return bytes(pdf.output(dest="S"))
+    # Output PDF sebagai string latin-1 dan convert ke bytes
+    return pdf.output(dest='S').encode('latin-1', errors='replace')
 
 # --- ENGINES ---
 @st.cache_resource
@@ -143,26 +144,23 @@ def preprocess(image):
 def generate_gradcam(image, model_path):
     import tensorflow as tf
     
-    # FIX: Memaksa loading menggunakan format Keras Legacy untuk menghindari ValueError standardize_shape
+    # Try Load Model
     try:
         model = tf.keras.models.load_model(model_path, compile=False)
-    except ValueError:
-        # Jika Keras 3 menolak model Sequential lama, gunakan loader legacy
+    except Exception:
         from keras.src.legacy.saving import legacy_h5_format
         model = legacy_h5_format.load_model_from_hdf5(model_path)
 
     img_array = preprocess(image)
     
-    # Cari layer konvolusi terakhir secara dinamis
+    # Cari layer konvolusi terakhir
     last_conv_layer_name = None
     for layer in reversed(model.layers):
-        # Cek jika layer adalah konvolusi atau memiliki output 4D
         if 'conv' in layer.name.lower() or isinstance(layer, tf.keras.layers.Conv2D):
             last_conv_layer_name = layer.name
             break
             
-    if not last_conv_layer_name:
-        return None
+    if not last_conv_layer_name: return None
 
     grad_model = tf.keras.models.Model(
         [model.inputs], 
@@ -171,7 +169,8 @@ def generate_gradcam(image, model_path):
 
     with tf.GradientTape() as tape:
         conv_outputs, preds = grad_model(img_array)
-        # Menangani jika output berupa list
+        
+        # FIX: Squeeze jika output berupa list (Menangani error tuple shape)
         if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
         if isinstance(preds, (list, tuple)): preds = preds[0]
         
@@ -179,15 +178,20 @@ def generate_gradcam(image, model_path):
         loss = preds[:, class_idx]
 
     grads = tape.gradient(loss, conv_outputs)
+    
+    # Global Average Pooling pada Gradient
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     
-    # Hitung heatmap
-    heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
+    # Perkalian matriks untuk heatmap
+    last_conv_output = conv_outputs[0]
+    heatmap = last_conv_output @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
-    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     
-    # Resizing dan coloring
+    # Normalisasi
+    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     heatmap_np = heatmap.numpy()
+    
+    # Resize & Color
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
@@ -200,7 +204,6 @@ def generate_saliency(session, image, pred_class):
     base_score = float(session.run(None, {inp_name: base_batch})[0][0][pred_class])
     
     saliency = np.zeros((224, 224), dtype=np.float32)
-    # Gunakan grid yang lebih rapat (16x16) agar lebih halus
     step = 16
     for y in range(0, 224, step):
         for x in range(0, 224, step):
@@ -237,15 +240,15 @@ if uploaded_files:
             img = Image.open(f).convert('RGB')
             batch = preprocess(img)
             
-            # Prediksi Utama (Cepat)
+            # Prediksi Utama (ONNX)
             out = onnx_sess.run(None, {onnx_sess.get_inputs()[0].name: batch})[0]
             pred_idx = int(np.argmax(out[0]))
             
-            with st.spinner(f"Processing Explainable AI for {f.name}..."):
-                # Saliency Map (Occlusion)
+            with st.spinner(f"XAI Analysis: {f.name}..."):
+                # Saliency Map
                 saliency_img = generate_saliency(onnx_sess, img, pred_idx)
                 
-                # Grad-CAM (Gradient)
+                # Grad-CAM (TensorFlow)
                 gradcam_img = None
                 if os.path.exists(MODEL_PATH):
                     try:
@@ -270,12 +273,19 @@ if uploaded_files:
             st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}">{res["label"].upper()} - {res["filename"]} ({res["confidence"]:.1f}%)</div>', unsafe_allow_html=True)
             
             c1, c2, c3 = st.columns(3)
-            with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
+            with c1: st.image(res['image'], caption="Original", use_container_width=True)
             with c2: 
-                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM (Gradient Focus)", use_container_width=True)
+                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM", use_container_width=True)
                 else: st.info("Grad-CAM Unavailable")
-            with c3: st.image(res['saliency'], caption="Saliency (Occlusion Map)", use_container_width=True)
+            with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
 
-        st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
+        # PDF Download Button
+        pdf_bytes = create_pdf(all_results)
+        st.download_button(
+            label="DOWNLOAD CLINICAL REPORT (PDF)", 
+            data=pdf_bytes, 
+            file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf",
+            mime="application/pdf"
+        )
 else:
     st.markdown("<center><br><br><div style='opacity:0.3'>Awaiting MRI scan input...</div></center>", unsafe_allow_html=True)
