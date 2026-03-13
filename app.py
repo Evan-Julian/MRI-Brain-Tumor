@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="NeuroScan AI | Diagnostic",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded", # Diubah agar sidebar terlihat untuk informasi medis
 )
 
 # ── CSS ──────────────────────────────────────────────────────────────────────
@@ -43,6 +43,27 @@ html, body, .stApp, [class*="css"] {
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 2rem 3rem !important; max-width: 1400px !important; }
 
+/* ── SIDEBAR INFO ── */
+[data-testid="stSidebar"] {
+    background-color: #030508 !important;
+    border-right: 1px solid rgba(99,179,237,0.1) !important;
+}
+.sidebar-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px; color: #63B3ED;
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 20px; border-bottom: 1px solid rgba(99,179,237,0.2);
+    padding-bottom: 10px;
+}
+.medical-card {
+    background: rgba(99,179,237,0.04);
+    border: 1px solid rgba(99,179,237,0.1);
+    padding: 12px; border-radius: 4px;
+    margin-bottom: 15px;
+}
+.medical-card b { color: #63B3ED; font-size: 12px; }
+.medical-card p { font-size: 11px; line-height: 1.4; color: rgba(201,209,224,0.7); margin-top: 5px; }
+
 /* ── HEADER ── */
 .neuro-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -68,7 +89,7 @@ html, body, .stApp, [class*="css"] {
 
 /* ── HERO TITLE ── */
 .hero-title {
-    font-size: clamp(42px, 6vw, 80px);
+    font-size: clamp(32px, 5vw, 70px);
     font-weight: 900;
     line-height: 0.95;
     letter-spacing: -3px;
@@ -93,20 +114,6 @@ html, body, .stApp, [class*="css"] {
     border: 1px dashed rgba(99,179,237,0.2) !important;
     border-radius: 4px !important;
     padding: 40px !important;
-}
-
-/* ── BUTTON ── */
-.stButton > button {
-    background: transparent !important;
-    color: #63B3ED !important;
-    border: 1px solid rgba(99,179,237,0.4) !important;
-    border-radius: 2px !important;
-    font-family: 'Space Mono', monospace !important;
-    font-size: 11px !important;
-    letter-spacing: 3px !important;
-    text-transform: uppercase !important;
-    padding: 14px 32px !important;
-    width: 100% !important;
 }
 
 /* ── RESULT CARDS ── */
@@ -180,21 +187,6 @@ html, body, .stApp, [class*="css"] {
     text-transform: uppercase;
 }
 
-/* Tabs styling */
-.stTabs [data-baseweb="tab-list"] { gap: 8px; }
-.stTabs [data-baseweb="tab"] {
-    background-color: transparent !important;
-    border: 1px solid rgba(99,179,237,0.1) !important;
-    color: rgba(99,179,237,0.5) !important;
-    padding: 8px 16px !important;
-    font-family: 'Space Mono', monospace !important;
-    font-size: 10px !important;
-}
-.stTabs [aria-selected="true"] {
-    border-color: #63B3ED !important;
-    color: #63B3ED !important;
-}
-
 /* Control Panel for Image Augmentation */
 .control-panel {
     background: rgba(99,179,237,0.03);
@@ -205,6 +197,30 @@ html, body, .stApp, [class*="css"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+# ── SIDEBAR KNOWLEDGE CENTER ─────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown('<div class="sidebar-title">Medical Knowledge</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="medical-card">
+        <b>🧠 GLIOMA</b>
+        <p>Tumor yang tumbuh dari sel glial (sel penyokong otak). Cenderung bersifat invasif dan menyebar di jaringan otak sekitarnya.</p>
+    </div>
+    <div class="medical-card">
+        <b>🛡️ MENINGIOMA</b>
+        <p>Tumor yang muncul dari meninges (selaput pelindung otak). Biasanya jinak dan tumbuh lambat, namun dapat menekan saraf di sekitarnya.</p>
+    </div>
+    <div class="medical-card">
+        <b>💧 PITUITARY</b>
+        <p>Tumor pada kelenjar pituitari di dasar otak. Dapat mempengaruhi sistem hormon tubuh dan mengganggu penglihatan.</p>
+    </div>
+    <div class="medical-card">
+        <b>✅ NO TUMOR</b>
+        <p>Hasil menunjukkan bahwa tidak terdeteksi adanya lesi atau massa abnormal pada area scan yang dianalisis oleh AI.</p>
+    </div>
+    <p style="font-size: 9px; color: rgba(201,209,224,0.4); text-align: center;">Sumber: Radiopaedia & Medical AI Standards</p>
+    """, unsafe_allow_html=True)
 
 # ── PDF GENERATOR ────────────────────────────────────────────────────────────
 def safe(text):
@@ -314,7 +330,7 @@ CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 st.markdown("""
 <div class="neuro-header">
     <div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div>
-    <div class="neuro-badge">ResNet50 · ONNX Runtime · v2.2</div>
+    <div class="neuro-badge">ResNet50 · ONNX Runtime · v2.3</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -330,15 +346,14 @@ with col_hero:
     <div class="hero-sub">// Precision Neuro-Imaging Analytics</div>
     """, unsafe_allow_html=True)
     
-    # Feature Description replaced AI chat
     st.markdown("""
     <div style="background: rgba(99,179,237,0.05); padding: 20px; border-radius: 4px; border: 1px solid rgba(99,179,237,0.1);">
         <p style="font-family:'Space Mono', monospace; font-size:11px; color:#63B3ED; margin-bottom:10px;">[ SYSTEM_CAPABILITIES ]</p>
         <ul style="font-size:12px; color:rgba(201,209,224,0.7); line-height:1.6; list-style-type: '→ '; padding-left:15px;">
             <li>Saliency Mapping (Occlusion Sensitivity)</li>
             <li>Real-time Image Augmentation Engine</li>
-            <li>Batch Processing & Clinical PDF Export</li>
-            <li>Class Probability Distribution</li>
+            <li>Medical Knowledge Center Support</li>
+            <li>Clinical PDF Export with Confidence Scoring</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -359,7 +374,7 @@ with col_upload:
     <div style='font-family:"Space Mono",monospace; font-size:10px;
     letter-spacing:2px; color:rgba(99,179,237,0.25); text-align:center;
     margin-top:8px; text-transform:uppercase;'>
-    Batch support enabled · DICOM to PNG suggested
+    JPG / PNG format · Batch analysis active
     </div>""", unsafe_allow_html=True)
 
 # ── RUN ANALYSIS ─────────────────────────────────────────────────────────────
@@ -411,14 +426,6 @@ if 'analysis_results' in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── BATCH ANALYSIS ──
-    if len(results) > 1:
-        with st.expander("📊 BATCH DISTRIBUTION ANALYSIS", expanded=False):
-            df = pd.DataFrame([{'Label': r['label'], 'Conf': r['confidence']} for r in results])
-            c1, c2 = st.columns(2)
-            with c1: st.bar_chart(df['Label'].value_counts())
-            with c2: st.line_chart(df['Conf'])
-
     st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
 
     # ── RESULTS GRID ──
@@ -444,26 +451,19 @@ if 'analysis_results' in st.session_state:
                 tab1, tab2, tab3 = st.tabs(["📷 VIEWPORT", "🔥 HEATMAP", "📊 PROBS"])
                 
                 with tab1:
-                    # ── IMAGE AUGMENTATION CONTROLS (NEW) ──
                     st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
-                    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
-                    with ctrl_col1:
-                        bright = st.slider("BRIGHT", 0.5, 2.0, 1.0, 0.1, key=f"br_{res['filename']}")
-                    with ctrl_col2:
-                        cont = st.slider("CONTRAST", 0.5, 2.0, 1.0, 0.1, key=f"ct_{res['filename']}")
-                    with ctrl_col3:
-                        sharp = st.slider("SHARP", 0.0, 3.0, 1.0, 0.1, key=f"sh_{res['filename']}")
+                    c_col1, c_col2, c_col3 = st.columns(3)
+                    with c_col1: br = st.slider("BRIGHT", 0.5, 2.0, 1.0, 0.1, key=f"br_{res['filename']}")
+                    with c_col2: ct = st.slider("CONTRAST", 0.5, 2.0, 1.0, 0.1, key=f"ct_{res['filename']}")
+                    with c_col3: sh = st.slider("SHARP", 0.0, 3.0, 1.0, 0.1, key=f"sh_{res['filename']}")
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                    # Apply Augmentation
-                    enhanced_img = ImageEnhance.Brightness(res["image"]).enhance(bright)
-                    enhanced_img = ImageEnhance.Contrast(enhanced_img).enhance(cont)
-                    enhanced_img = ImageEnhance.Sharpness(enhanced_img).enhance(sharp)
-                    st.image(enhanced_img, use_container_width=True)
+                    enhanced = ImageEnhance.Brightness(res["image"]).enhance(br)
+                    enhanced = ImageEnhance.Contrast(enhanced).enhance(ct)
+                    enhanced = ImageEnhance.Sharpness(enhanced).enhance(sh)
+                    st.image(enhanced, use_container_width=True)
 
-                with tab2:
-                    st.image(res["saliency"], use_container_width=True)
-                
+                with tab2: st.image(res["saliency"], use_container_width=True)
                 with tab3:
                     for ci, prob in enumerate(res["probs"]):
                         name = CLASS_NAMES.get(ci, f"C{ci}")
@@ -478,7 +478,7 @@ if 'analysis_results' in st.session_state:
         pdf_bytes = create_pdf(results)
         st.download_button(label="↓ DOWNLOAD CLINICAL REPORT", data=pdf_bytes, file_name=f"NeuroScan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf")
     with col_info:
-        st.info("🛠 Use the VIEWPORT sliders to enhance tissue contrast and improve visibility of lesion boundaries.")
+        st.info("ℹ️ Lihat panel sidebar untuk penjelasan mendalam mengenai kategori tumor yang terdeteksi.")
 
 elif not uploaded_files:
     st.markdown("""
@@ -491,6 +491,6 @@ elif not uploaded_files:
 # ── FOOTER ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <br><div style='text-align:center; font-family:"Space Mono",monospace; font-size:9px; letter-spacing:4px; text-transform:uppercase; color:rgba(99,179,237,0.12); padding: 24px 0;'>
-NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE &nbsp;·&nbsp; v2.2
+NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE &nbsp;·&nbsp; v2.3
 </div>
 """, unsafe_allow_html=True)
