@@ -407,7 +407,6 @@ def create_pdf(results):
     pdf.set_text_color(150, 150, 150)
     pdf.multi_cell(0, 4, safe("DISCLAIMER: Institutional research use only. Final clinical diagnosis must be conducted by professional medical staff."))
     
-    # ── COMPATIBILITY FIX FOR STREAMLIT CLOUD ──
     return pdf.output(dest='S').encode('latin-1')
 
 # ── LOGIC ────────────────────────────────────────────────────────────────────
@@ -499,7 +498,7 @@ with col_upload:
     uploaded_files = st.file_uploader("DROP MRI SCANS HERE", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
     st.markdown("<div style='font-family:\"Space Mono\",monospace; font-size:10px; letter-spacing:2px; color:rgba(99,179,237,0.25); text-align:center; margin-top:8px; text-transform:uppercase;'>JPG / PNG supported · Batch active</div>", unsafe_allow_html=True)
 
-# ── KNOWLEDGE BASE (NOW BELOW) ──────────────────────────────────────────────
+# ── KNOWLEDGE BASE ──────────────────────────────────────────────────────────
 st.markdown("""
 <div class="knowledge-section">
     <div class="knowledge-title">// Brain Tumor Knowledge Base</div>
@@ -572,9 +571,21 @@ if 'analysis_results' in st.session_state:
                 is_tumor = res["label"] != "No Tumor"
                 st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}"><div style="display:flex;justify-content:space-between"><div><div class="result-label {"tumor" if is_tumor else ""}">{res["label"].upper()}</div><div class="result-meta">{res["filename"][:15]}...</div></div><div class="result-confidence {"tumor" if is_tumor else ""}">{res["confidence"]:.1f}%</div></div></div>', unsafe_allow_html=True)
                 t1, t2, t3 = st.tabs(["VIEW", "HEAT", "PROB"])
+                
                 with t1:
-                    b = st.slider("BR", 0.5, 2.0, 1.0, key=f"b_{res['filename']}")
-                    st.image(ImageEnhance.Brightness(res["image"]).enhance(b), use_container_width=True)
+                    # --- REINSTATED AUGMENTATION CONTROLS ---
+                    st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
+                    c_col1, c_col2, c_col3 = st.columns(3)
+                    with c_col1: br = st.slider("BRIGHT", 0.5, 2.0, 1.0, 0.1, key=f"br_{res['filename']}")
+                    with c_col2: ct = st.slider("CONTRAST", 0.5, 2.0, 1.0, 0.1, key=f"ct_{res['filename']}")
+                    with c_col3: sh = st.slider("SHARP", 0.0, 3.0, 1.0, 0.1, key=f"sh_{res['filename']}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    enhanced = ImageEnhance.Brightness(res["image"]).enhance(br)
+                    enhanced = ImageEnhance.Contrast(enhanced).enhance(ct)
+                    enhanced = ImageEnhance.Sharpness(enhanced).enhance(sh)
+                    st.image(enhanced, use_container_width=True)
+
                 with t2: st.image(res["saliency"], use_container_width=True)
                 with t3:
                     for ci, p in enumerate(res["probs"]):
@@ -589,5 +600,5 @@ if 'analysis_results' in st.session_state:
         with col_info: 
             st.info("Institutional research use only. PDF report includes saliency mapping.")
 
-# ── FOOTER ───────────────────────────────────────────────────────────────────
+# ── FOOTER (CLEANED) ──────────────────────────────────────────────────────────
 st.markdown("<br><div style='text-align:center; font-family:\"Space Mono\",monospace; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.12); padding: 24px 0;'>NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH &nbsp;·&nbsp; v2.4</div>", unsafe_allow_html=True)
