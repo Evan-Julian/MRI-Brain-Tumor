@@ -123,7 +123,6 @@ def create_pdf(results):
         pdf.ln(5)
         if os.path.exists(tmp.name): os.remove(tmp.name)
         
-    # Output PDF sebagai string latin-1 dan convert ke bytes
     return pdf.output(dest='S').encode('latin-1', errors='replace')
 
 # --- ENGINES ---
@@ -144,7 +143,7 @@ def preprocess(image):
 def generate_gradcam(image, model_path):
     import tensorflow as tf
     
-    # Try Load Model
+    # Load Model dengan pengecekan Legacy
     try:
         model = tf.keras.models.load_model(model_path, compile=False)
     except Exception:
@@ -153,7 +152,7 @@ def generate_gradcam(image, model_path):
 
     img_array = preprocess(image)
     
-    # Cari layer konvolusi terakhir
+    # Identifikasi layer konvolusi terakhir
     last_conv_layer_name = None
     for layer in reversed(model.layers):
         if 'conv' in layer.name.lower() or isinstance(layer, tf.keras.layers.Conv2D):
@@ -162,41 +161,57 @@ def generate_gradcam(image, model_path):
             
     if not last_conv_layer_name: return None
 
+    # Menggunakan API Model fungsional untuk Grad-CAM
     grad_model = tf.keras.models.Model(
-        [model.inputs], 
-        [model.get_layer(last_conv_layer_name).output, model.output]
+        inputs=[model.inputs], 
+        outputs=[model.get_layer(last_conv_layer_name).output, model.output]
     )
 
     with tf.GradientTape() as tape:
+        # Eksekusi Model
         conv_outputs, preds = grad_model(img_array)
         
-        # FIX: Squeeze jika output berupa list (Menangani error tuple shape)
-        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
-        if isinstance(preds, (list, tuple)): preds = preds[0]
-        
-        class_idx = np.argmax(preds[0])
+        # --- PERBAIKAN UTAMA: UNPACK NESTED TUPLE ---
+        # Beberapa versi Keras membungkus output tensor dalam tuple berlebih
+        while isinstance(conv_outputs, (list, tuple)) and len(conv_outputs) > 0:
+            if isinstance(conv_outputs[0], tf.Tensor):
+                conv_outputs = conv_outputs[0]
+                break
+            conv_outputs = conv_outputs[0]
+            
+        while isinstance(preds, (list, tuple)) and len(preds) > 0:
+            if isinstance(preds[0], tf.Tensor):
+                preds = preds[0]
+                break
+            preds = preds[0]
+        # --------------------------------------------
+
+        class_idx = tf.argmax(preds[0])
         loss = preds[:, class_idx]
 
+    # Hitung gradien terhadap output konvolusi
     grads = tape.gradient(loss, conv_outputs)
     
-    # Global Average Pooling pada Gradient
+    # Global Average Pooling pada gradien
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     
-    # Perkalian matriks untuk heatmap
-    last_conv_output = conv_outputs[0]
-    heatmap = last_conv_output @ pooled_grads[..., tf.newaxis]
+    # Kalkulasi Heatmap (Weighted Sum of Feature Maps)
+    conv_outputs_val = conv_outputs[0]
+    heatmap = conv_outputs_val @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
     
-    # Normalisasi
+    # Normalisasi 0-1
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     heatmap_np = heatmap.numpy()
     
-    # Resize & Color
+    # Resize dan Coloring
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
     
-    return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0))
+    # Overlay dengan citra asli
+    original_img = np.array(image.convert('RGB'))
+    return Image.fromarray(cv2.addWeighted(original_img, 0.6, heatmap_rgb, 0.4, 0))
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -223,14 +238,14 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("Dual-Engine Diagnostics: ONNX Speed + TensorFlow XAI")
+    st.caption("Dual-Engine Visual Diagnostics: ONNX Inference + XAI Grad-CAM")
 
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
 if uploaded_files:
-    if st.button(f"ANALYZE {len(uploaded_files)} SCANS"):
+    if st.button(f"EXECUTE ANALYSIS ({len(uploaded_files)} SCANS)"):
         all_results = []
         t_start = time.time()
         
@@ -240,21 +255,21 @@ if uploaded_files:
             img = Image.open(f).convert('RGB')
             batch = preprocess(img)
             
-            # Prediksi Utama (ONNX)
+            # Fast Inference via ONNX
             out = onnx_sess.run(None, {onnx_sess.get_inputs()[0].name: batch})[0]
             pred_idx = int(np.argmax(out[0]))
             
-            with st.spinner(f"XAI Analysis: {f.name}..."):
+            with st.spinner(f"Processing {f.name}..."):
                 # Saliency Map
                 saliency_img = generate_saliency(onnx_sess, img, pred_idx)
                 
-                # Grad-CAM (TensorFlow)
+                # Grad-CAM
                 gradcam_img = None
                 if os.path.exists(MODEL_PATH):
                     try:
                         gradcam_img = generate_gradcam(img, MODEL_PATH)
                     except Exception as e:
-                        st.warning(f"Grad-CAM failed for {f.name}: {e}")
+                        st.warning(f"Grad-CAM error for {f.name}: {e}")
             
             all_results.append({
                 'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img,
@@ -262,24 +277,24 @@ if uploaded_files:
                 'confidence': float(np.max(out[0])) * 100
             })
 
-        # Statistics
+        # Dashboard Metrics
         s1, s2, s3 = st.columns(3)
         s1.markdown(f"<div class='stat-box'>SCANS<br><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
         s2.markdown(f"<div class='stat-box'>AVG ACC<br><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
-        s3.markdown(f"<div class='stat-box'>LATENCY<br><h2>{time.time()-t_start:.1f}s</h2></div>", unsafe_allow_html=True)
+        s3.markdown(f"<div class='stat-box'>TIME<br><h2>{time.time()-t_start:.1f}s</h2></div>", unsafe_allow_html=True)
 
         for res in all_results:
             is_tumor = res['label'] != "No Tumor"
             st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}">{res["label"].upper()} - {res["filename"]} ({res["confidence"]:.1f}%)</div>', unsafe_allow_html=True)
             
             c1, c2, c3 = st.columns(3)
-            with c1: st.image(res['image'], caption="Original", use_container_width=True)
+            with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
-                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM", use_container_width=True)
+                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
                 else: st.info("Grad-CAM Unavailable")
             with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
 
-        # PDF Download Button
+        # Download PDF
         pdf_bytes = create_pdf(all_results)
         st.download_button(
             label="DOWNLOAD CLINICAL REPORT (PDF)", 
