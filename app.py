@@ -97,43 +97,44 @@ def generate_gradcam(image, model_path):
 
     img_array = preprocess(image)
     
-    # MENCARI MODEL & LAYER TARGET (MENGATASI SEQUENTIAL WRAPPER)
+    # 1. Identifikasi model inti (ResNet50) di dalam wrapper Sequential
     target_model = model
-    target_layer_name = 'conv5_block3_out'
-
-    # Jika ResNet dibungkus Sequential, masuk ke dalamnya
-    if len(model.layers) > 0 and isinstance(model.layers[0], tf.keras.Model):
+    if hasattr(model, 'layers') and isinstance(model.layers[0], tf.keras.Model):
         target_model = model.layers[0]
 
+    # 2. Cari layer konvolusi terakhir
+    target_layer_name = 'conv5_block3_out'
     try:
-        # EKSTRAKSI TENSOR SECARA MURNI
-        # Kita ambil .output[0] jika ia terdeteksi sebagai list/tuple di level Keras
-        conv_output = target_model.get_layer(target_layer_name).output
-        if isinstance(conv_output, list): conv_output = conv_output[0]
-        
-        model_output = target_model.output
-        if isinstance(model_output, list): model_output = model_output[0]
-
-        # RE-CONSTRUCT MODEL FUNGSIONAL UNTUK TRACKING GRADIENT
-        grad_model = tf.keras.Model(target_model.inputs, [conv_output, model_output])
+        last_conv_layer = target_model.get_layer(target_layer_name)
     except:
-        return None
+        # Fallback jika nama layer berbeda
+        for layer in reversed(target_model.layers):
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                target_layer_name = layer.name
+                last_conv_layer = layer
+                break
+
+    # 3. Model Fungsional dengan penanganan eksplisit untuk tensor
+    # Menggunakan output[0] jika layer mengembalikan list/tuple
+    itf = target_model.inputs[0] if isinstance(target_model.inputs, list) else target_model.inputs
+    otf_conv = last_conv_layer.output[0] if isinstance(last_conv_layer.output, list) else last_conv_layer.output
+    otf_pred = target_model.output[0] if isinstance(target_model.output, list) else target_model.output
+
+    grad_model = tf.keras.Model(inputs=itf, outputs=[otf_conv, otf_pred])
 
     with tf.GradientTape() as tape:
-        # FORCE TENSOR CONVERSION
-        inputs = tf.cast(img_array, tf.float32)
-        conv_outputs, predictions = grad_model(inputs)
+        # Konversi input ke tensor secara eksplisit
+        img_tensor = tf.convert_to_tensor(img_array)
+        conv_outputs, predictions = grad_model(img_tensor)
         
-        # PENANGANAN KHUSUS NESTED TUPLE (((...)))
-        if isinstance(conv_outputs, (list, tuple)):
-            while isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
-        if isinstance(predictions, (list, tuple)):
-            while isinstance(predictions, (list, tuple)): predictions = predictions[0]
+        # Penanganan khusus jika output tetap dibungkus tuple oleh API fungsional
+        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
+        if isinstance(predictions, (list, tuple)): predictions = predictions[0]
 
         class_idx = tf.argmax(predictions[0])
         loss = predictions[:, class_idx]
 
-    # Ambil gradien murni
+    # Ekstraksi Gradien murni
     grads = tape.gradient(loss, conv_outputs)
     
     # Global Average Pooling
@@ -147,7 +148,7 @@ def generate_gradcam(image, model_path):
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     heatmap_np = heatmap.numpy()
     
-    # Color mapping & Overlay
+    # Resize & Overlay
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
@@ -206,7 +207,7 @@ if uploaded_files:
         s1, s2, s3 = st.columns(3)
         s1.markdown(f"<div class='stat-box'>SCANS<br><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
         s2.markdown(f"<div class='stat-box'>AVG ACC<br><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
-        s3.markdown(f"<div class='stat-box'>LATENCY<br><h2>{time.time()-t_start:.1f}s</h2></div>", unsafe_allow_html=True)
+        s3.markdown(f"<div class='stat-box'>TIME<br><h2>{time.time()-t_start:.1f}s</h2></div>", unsafe_allow_html=True)
         for res in all_results:
             is_tumor = res['label'] != "No Tumor"
             st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}">{res["label"].upper()} - {res["filename"]} ({res["confidence"]:.1f}%)</div>', unsafe_allow_html=True)
