@@ -91,85 +91,74 @@ def generate_gradcam(image, model_path):
     import tensorflow as tf
     try:
         model = tf.keras.models.load_model(model_path, compile=False)
-    except Exception:
+    except:
         from keras.src.legacy.saving import legacy_h5_format
         model = legacy_h5_format.load_model_from_hdf5(model_path)
 
     img_array = preprocess(image)
     
-    # Berdasarkan file .py Colab: model Sequential -> [base_model ResNet, pooling, denselayer]
-    # Kita cari layer terakhir dari base_model
-    target_layer = None
+    # 1. TEMUKAN TARGET MODEL & LAYER
     target_model = None
+    target_layer_name = 'conv5_block3_out' # Default ResNet50
 
     for layer in model.layers:
         if isinstance(layer, tf.keras.Model) or 'resnet50' in layer.name.lower():
             target_model = layer
-            # Cari layer konvolusi terakhir di dalam ResNet
-            for sub_layer in reversed(layer.layers):
-                if 'conv5_block3_out' in sub_layer.name or isinstance(sub_layer, tf.keras.layers.Conv2D):
-                    target_layer = sub_layer
-                    break
-        if target_layer: break
-
-    # Fallback jika tidak ditemukan struktur Sequential
-    if not target_layer:
-        for layer in reversed(model.layers):
-            if isinstance(layer, tf.keras.layers.Conv2D):
-                target_layer = layer
-                target_model = model
-                break
-
-    if not target_layer or not target_model: return None
-
-    # --- RESTRUKTURISASI MODEL UNTUK MENGHINDARI TUPLE ERROR ---
-    # Kita buat model fungsional baru dari input yang sama
-    # Memaksa output menjadi Tensor tunggal (mengambil indeks 0 jika tuple)
+            break
     
+    if not target_model: target_model = model
+
+    # 2. EKSTRAKSI TENSOR SECARA AMAN (MENGHINDARI TUPLE)
     try:
-        conv_output = target_model.get_layer(target_layer.name).output
-        model_output = target_model.output
+        # Kita ambil output tensor asli dari layer, bukan list/tuple pembungkusnya
+        last_conv_layer = target_model.get_layer(target_layer_name)
+        last_conv_output = last_conv_layer.output
         
-        # Penanganan jika output layer berupa list/tuple di level Keras
-        if isinstance(conv_output, list): conv_output = conv_output[0]
+        # Jika output dibungkus list/tuple oleh Keras, bongkar di sini
+        if isinstance(last_conv_output, list): last_conv_output = last_conv_output[0]
+        
+        model_input = target_model.input
+        if isinstance(model_input, list): model_input = model_input[0]
+        
+        model_output = target_model.output
         if isinstance(model_output, list): model_output = model_output[0]
 
-        grad_model = tf.keras.models.Model([target_model.inputs], [conv_output, model_output])
-    except:
+        # Buat Model Grad-CAM Baru dengan Tensor murni
+        grad_model = tf.keras.Model(inputs=model_input, outputs=[last_conv_output, model_output])
+    except Exception as e:
         return None
 
+    # 3. GRADIENT COMPUTATION
     with tf.GradientTape() as tape:
         conv_outputs, preds = grad_model(img_array)
         
-        # Unpacking Manual di dalam Tape
+        # Double check unpacking di dalam tape
         if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
         if isinstance(preds, (list, tuple)): preds = preds[0]
         
         class_idx = tf.argmax(preds[0])
         loss = preds[:, class_idx]
 
-    # Ekstraksi Gradien
+    # Ekstraksi gradien terhadap filter konvolusi
     grads = tape.gradient(loss, conv_outputs)
     
-    # GAP
+    # GAP (Global Average Pooling)
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     
-    # Heatmap
-    last_conv_output = conv_outputs[0]
-    heatmap = last_conv_output @ pooled_grads[..., tf.newaxis]
+    # Weighting Feature Maps
+    conv_outputs_val = conv_outputs[0]
+    heatmap = conv_outputs_val @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
     
-    # Normalisasi
+    # Normalisasi & Coloring
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     heatmap_np = heatmap.numpy()
     
-    # Resize & Overlay
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
     
-    original_img = np.array(image.convert('RGB'))
-    return Image.fromarray(cv2.addWeighted(original_img, 0.6, heatmap_rgb, 0.4, 0))
+    return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0))
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -193,13 +182,13 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("Dual-Engine Diagnostics: ONNX Speed + XAI Visualization")
+    st.caption("Dual-Engine Visual Diagnostics: ONNX Inference + XAI Grad-CAM")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
 if uploaded_files:
-    if st.button(f"ANALYZE {len(uploaded_files)} SCANS"):
+    if st.button(f"EXECUTE ANALYSIS ({len(uploaded_files)} SCANS)"):
         all_results = []
         t_start = time.time()
         MODEL_PATH = 'best_resnet_20260307-162330.h5'
