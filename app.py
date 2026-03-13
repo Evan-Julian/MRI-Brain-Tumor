@@ -8,14 +8,15 @@ from PIL import Image, ImageEnhance
 from fpdf import FPDF
 from datetime import datetime
 
+# ── CONFIGURATION ────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="NeuroScan AI | Diagnostic",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded", 
 )
 
-# ── CSS ──────────────────────────────────────────────────────────────────────
+# ── CSS (BUG FIX: CLEANED) ───────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800;900&display=swap');
@@ -43,11 +44,12 @@ html, body, .stApp, [class*="css"] {
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 2rem 3rem !important; max-width: 1400px !important; }
 
-/* ── SIDEBAR INFO ── */
+/* SIDEBAR STYLING */
 [data-testid="stSidebar"] {
     background-color: #030508 !important;
     border-right: 1px solid rgba(99,179,237,0.1) !important;
 }
+
 .sidebar-title {
     font-family: 'Space Mono', monospace;
     font-size: 14px; color: #63B3ED;
@@ -55,6 +57,7 @@ html, body, .stApp, [class*="css"] {
     margin-bottom: 20px; border-bottom: 1px solid rgba(99,179,237,0.2);
     padding-bottom: 10px;
 }
+
 .medical-card {
     background: rgba(99,179,237,0.04);
     border: 1px solid rgba(99,179,237,0.1);
@@ -64,7 +67,7 @@ html, body, .stApp, [class*="css"] {
 .medical-card b { color: #63B3ED; font-size: 12px; }
 .medical-card p { font-size: 11px; line-height: 1.4; color: rgba(201,209,224,0.7); margin-top: 5px; }
 
-/* ── HEADER ── */
+/* HEADER */
 .neuro-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 28px 0 40px;
@@ -78,16 +81,8 @@ html, body, .stApp, [class*="css"] {
     text-transform: uppercase;
 }
 .neuro-logo span { color: #63B3ED; font-weight: 700; }
-.neuro-badge {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px; letter-spacing: 3px;
-    color: rgba(99,179,237,0.4);
-    border: 1px solid rgba(99,179,237,0.15);
-    padding: 6px 14px; border-radius: 2px;
-    text-transform: uppercase;
-}
 
-/* ── STAT GRID ── */
+/* STATS */
 .stat-grid {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 12px; margin: 32px 0;
@@ -109,7 +104,7 @@ html, body, .stApp, [class*="css"] {
 }
 .stat-value span { color: #63B3ED; font-size: 16px; font-weight: 400; }
 
-/* ── SCAN RESULT CARD ── */
+/* RESULTS */
 .scan-result {
     position: relative;
     background: rgba(10,14,22,0.8);
@@ -128,7 +123,6 @@ html, body, .stApp, [class*="css"] {
 .scan-result.tumor::before {
     background: linear-gradient(180deg, #FC8181, transparent);
 }
-
 .result-label {
     font-size: 22px; font-weight: 900;
     letter-spacing: -1px;
@@ -149,29 +143,33 @@ html, body, .stApp, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+# ── SIDEBAR (FIXED: KNOWLEDGE CENTER) ────────────────────────────────────────
 with st.sidebar:
     st.markdown('<div class="sidebar-title">Medical Knowledge Center</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="medical-card">
         <b>🧠 GLIOMA</b>
-        <p>Invasif; tumbuh dari sel glial penyokong otak.</p>
+        <p>Tumor invasif yang tumbuh dari sel glial penyokong otak.</p>
     </div>
     <div class="medical-card">
         <b>🛡️ MENINGIOMA</b>
-        <p>Tumbuh pada selaput pelindung otak (meninges).</p>
+        <p>Tumor pada selaput pelindung otak (meninges). Seringkali jinak.</p>
     </div>
     <div class="medical-card">
         <b>💧 PITUITARY</b>
-        <p>Muncul pada kelenjar hormon di dasar otak.</p>
+        <p>Tumor pada kelenjar hormon dasar otak. Bisa mengganggu hormon & visi.</p>
     </div>
     <div class="medical-card">
         <b>✅ NO TUMOR</b>
-        <p>Kondisi normal; tidak ditemukan massa abnormal.</p>
+        <p>Kondisi normal; tidak ditemukan massa abnormal dalam scan ini.</p>
     </div>
+    <hr style="opacity:0.1">
+    <p style="font-size:10px; color:rgba(99,179,237,0.4); text-align:center;">
+        Gunakan tombol sidebar di kiri atas untuk menutup/membuka panel ini.
+    </p>
     """, unsafe_allow_html=True)
 
-# ── PDF GENERATOR ────────────────────────────────────────────────────────────
+# ── PDF UTILITY ──────────────────────────────────────────────────────────────
 def safe(text):
     return text.encode('latin-1', errors='replace').decode('latin-1')
 
@@ -183,12 +181,14 @@ def create_pdf(results):
     pdf.set_text_color(26, 115, 232)
     pdf.cell(0, 12, "NEUROSCAN AI - CLINICAL DIAGNOSTIC REPORT", ln=True, align='C')
     pdf.set_font("Arial", size=9)
+    pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 5, safe(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"), ln=True, align='C')
     pdf.ln(8)
 
     for idx, res in enumerate(results):
         if idx > 0 and idx % 2 == 0: pdf.add_page()
         pdf.set_font("Arial", 'B', 11)
+        pdf.set_text_color(40, 40, 40)
         pdf.cell(0, 8, safe(f"#{idx+1:02d}  {res['filename']}"), ln=True)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             res['image'].save(tmp.name)
@@ -207,11 +207,13 @@ def create_pdf(results):
         pdf.set_draw_color(220, 220, 220)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         if os.path.exists(tmp.name): os.remove(tmp.name)
-    
-    out = pdf.output(dest="S")
-    return bytes(out) if not isinstance(out, str) else out.encode("latin-1")
 
-# ── MODEL LOADER ─────────────────────────────────────────────────────────────
+    pdf.ln(8)
+    pdf.set_font("Arial", 'I', 7)
+    pdf.multi_cell(0, 4, safe("DISCLAIMER: Research use only. Final diagnosis must be by a medical professional."))
+    return bytes(pdf.output(dest="S"))
+
+# ── MODEL ENGINE ─────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     try:
@@ -224,7 +226,7 @@ def load_model():
 def preprocess(image: Image.Image) -> np.ndarray:
     img = image.resize((224, 224))
     arr = np.array(img).astype('float32')
-    arr = arr[:, :, ::-1]
+    arr = arr[:, :, ::-1] # BGR
     arr[:, :, 0] -= 103.939
     arr[:, :, 1] -= 116.779
     arr[:, :, 2] -= 123.68
@@ -251,17 +253,18 @@ def generate_saliency(session, image: Image.Image, pred_class: int) -> Image.Ima
 
 CLASS_NAMES = {0: "Glioma", 1: "Meningioma", 2: "No Tumor", 3: "Pituitary"}
 
-# ── UI ───────────────────────────────────────────────────────────────────────
-st.markdown('<div class="neuro-header"><div class="neuro-logo">NEURO<span>SCAN</span> AI</div><div class="neuro-badge">v2.5 FINAL</div></div>', unsafe_allow_html=True)
+# ── MAIN INTERFACE ───────────────────────────────────────────────────────────
+st.markdown('<div class="neuro-header"><div class="neuro-logo">NEURO<span>SCAN</span> &nbsp;/&nbsp; AI DIAGNOSTIC</div><div class="neuro-badge">v2.5 FINAL</div></div>', unsafe_allow_html=True)
 
-col_hero, col_upload = st.columns([1, 1], gap="large")
-with col_hero:
+c_hero, c_up = st.columns([1, 1], gap="large")
+with c_hero:
     st.markdown('<div style="font-size:60px; font-weight:900; line-height:1; color:#EDF2F7;">BRAIN<br><span style="color:transparent;-webkit-text-stroke:1px rgba(99,179,237,0.5);">TUMOR</span><br>SCAN</div>', unsafe_allow_html=True)
-    st.markdown('<p style="font-family:Space Mono; color:rgba(99,179,237,0.5); font-size:12px;">// Precision Neuro-Imaging Analytics</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-family:Space Mono; color:rgba(99,179,237,0.5); font-size:12px;">// Deep Learning MRI Classification</p>', unsafe_allow_html=True)
 
-with col_upload:
+with c_up:
     session = load_model()
-    files = st.file_uploader("UPLOAD", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
+    if not session: st.error("Model not found."); st.stop()
+    files = st.file_uploader("DROP MRI HERE", type=["jpg","png","jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
 if files:
     if st.button(f"RUN ANALYSIS · {len(files)} SCANS"):
@@ -281,41 +284,61 @@ if files:
         st.session_state['results'] = all_res
         st.session_state['time'] = time.time() - t_start
 
+# ── RESULTS DISPLAY ──────────────────────────────────────────────────────────
 if 'results' in st.session_state:
     res = st.session_state['results']
-    # STATS FIX (Seq)
     st.markdown(f"""
     <div class="stat-grid">
         <div class="stat-item"><div class="stat-label">Processed</div><div class="stat-value">{len(res)}<span> scans</span></div></div>
-        <div class="stat-item"><div class="stat-label">Abnormalities</div><div class="stat-value">{sum(1 for r in res if r['label']!='No Tumor')}<span> detect</span></div></div>
-        <div class="stat-item"><div class="stat-label">Avg Conf</div><div class="stat-value">{np.mean([r['confidence'] for r in res]):.1f}<span> %</span></div></div>
-        <div class="stat-item"><div class="stat-label">Latency</div><div class="stat-value">{st.session_state['time']:.2f}<span> s</span></div></div>
+        <div class="stat-item"><div class="stat-label">Detected</div><div class="stat-value">{sum(1 for r in res if r['label']!='No Tumor')}<span> cases</span></div></div>
+        <div class="stat-item"><div class="stat-label">Avg Conf</div><div class="stat-value">{np.mean([r['confidence'] for r in res]):.1f}<span>%</span></div></div>
+        <div class="stat-item"><div class="stat-label">Latency</div><div class="stat-value">{st.session_state['time']:.2f}<span>s</span></div></div>
     </div>
     """, unsafe_allow_html=True)
 
-    # GRID SCAN
+    # LOOP RESULTS (BUG FIX: CLEAN COLUMN HANDLING)
     for i in range(0, len(res), 3):
+        row_items = res[i:i+3]
         cols = st.columns(3)
-        for j, item in enumerate(res[i:i+3]):
-            with cols[j]:
+        for idx, item in enumerate(row_items):
+            with cols[idx]:
                 is_t = item['label'] != 'No Tumor'
-                st.markdown(f'<div class="scan-result {"tumor" if is_t else ""}"><div class="result-label {"tumor" if is_t else ""}">{item["label"].upper()}</div><div style="font-size:10px; opacity:0.6;">{item["filename"]} | {item["confidence"]:.1f}%</div></div>', unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="scan-result {'tumor' if is_t else ''}">
+                    <div class="result-label {'tumor' if is_t else ''}">{item['label'].upper()}</div>
+                    <div style="font-size:10px; opacity:0.6; font-family:Space Mono;">{item['filename']} | {item['confidence']:.1f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 t1, t2, t3 = st.tabs(["📷 VIEW", "🔥 HEAT", "📊 PROB"])
                 with t1:
                     st.markdown("<div class='control-panel'>", unsafe_allow_html=True)
-                    c1, c2 = st.columns(2)
-                    br = c1.slider("BRIGHT", 0.5, 2.0, 1.0, key=f"b{i+j}")
-                    ct = c2.slider("CONTRAST", 0.5, 2.0, 1.0, key=f"c{i+j}")
+                    sl1, sl2 = st.columns(2)
+                    br = sl1.slider("BRIGHT", 0.5, 2.0, 1.0, key=f"b{i+idx}")
+                    ct = sl2.slider("CONTRAST", 0.5, 2.0, 1.0, key=f"c{i+idx}")
                     st.markdown("</div>", unsafe_allow_html=True)
                     st.image(ImageEnhance.Contrast(ImageEnhance.Brightness(item['image']).enhance(br)).enhance(ct), use_container_width=True)
                 with t2: st.image(item['saliency'], use_container_width=True)
-                with t3: 
-                    for k, p in enumerate(item['probs']):
-                        st.write(f"{CLASS_NAMES[k]}: {p*100:.1f}%")
-                        st.progress(p)
-
+                with t3:
+                    for k, v in enumerate(item['probs']):
+                        st.write(f"{CLASS_NAMES[k]}: {v*100:.1f}%")
+                        st.progress(v)
+    
     st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
-    # PDF & INFO FIX
-    c_dl, c_inf = st.columns([1, 2])
-    c_dl.download_button("↓ DOWNLOAD CLINICAL REPORT", create_pdf(res), f"Report_{datetime.now().strftime('%M%S')}.pdf", "application/pdf")
-    c_inf.info("ℹ️ Penjelasan Tumor: Glioma (Invasif), Meningioma (Pelindung), Pituitary (Hormon), No Tumor (Normal).")
+    
+    # PDF SECTION (CLEANED)
+    pdf_col1, pdf_col2 = st.columns([1, 2])
+    with pdf_col1:
+        st.download_button("↓ DOWNLOAD CLINICAL REPORT", create_pdf(res), f"NeuroReport_{datetime.now().strftime('%M%S')}.pdf", "application/pdf")
+    with pdf_col2:
+        st.info("ℹ️ INFO: Gunakan tab VIEW untuk pengaturan visual manual.")
+
+elif not files:
+    st.markdown('<div style="text-align:center; padding:100px; opacity:0.2;">◎ Awaiting MRI Scan Input</div>', unsafe_allow_html=True)
+
+# ── FOOTER ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<br><div style='text-align:center; font-family:Space Mono; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.1); padding:40px 0;'>
+NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH USE ONLY &nbsp;·&nbsp; 2026
+</div>
+""", unsafe_allow_html=True)
