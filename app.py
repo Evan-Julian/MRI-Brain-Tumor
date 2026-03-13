@@ -336,7 +336,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# ── PDF GENERATOR ────────────────────────────────────────────────────────────
+# ── PDF GENERATOR (Fixed Layout Overlap) ─────────────────────────────────────
 def safe(text):
     return text.encode('latin-1', errors='replace').decode('latin-1')
 
@@ -355,6 +355,8 @@ def create_pdf(results):
     for idx, res in enumerate(results):
         if idx > 0 and idx % 2 == 0:
             pdf.add_page()
+        
+        y_start = pdf.get_y()
         pdf.set_font("Arial", 'B', 11)
         pdf.set_text_color(40, 40, 40)
         pdf.cell(0, 8, safe(f"#{idx+1:02d} | {res['filename']}"), ln=True)
@@ -367,25 +369,40 @@ def create_pdf(results):
             res['saliency'].save(tmp_heat.name)
             tmp_heat_path = tmp_heat.name
 
-        y = pdf.get_y()
-        pdf.image(tmp_mri_path, x=10, y=y, w=55)
-        pdf.image(tmp_heat_path, x=68, y=y, w=55)
+        y_img = pdf.get_y()
+        # Adjusted width and spacing for images
+        pdf.image(tmp_mri_path, x=10, y=y_img, w=58)
+        pdf.image(tmp_heat_path, x=72, y=y_img, w=58)
 
-        pdf.set_xy(130, y + 2)
-        pdf.set_font("Arial", 'B', 13)
+        # ── TEXT INFO (Moved X further to prevent overlap) ──
+        pdf.set_xy(135, y_img + 2) 
+        pdf.set_font("Arial", 'B', 14)
         is_tumor = res['label'].lower() != 'no tumor'
         pdf.set_text_color(220, 50, 50) if is_tumor else pdf.set_text_color(26, 115, 232)
         pdf.cell(0, 8, safe(res['label'].upper()), ln=True)
 
-        pdf.set_x(130)
+        pdf.set_x(135)
         pdf.set_font("Arial", '', 10)
         pdf.set_text_color(60, 60, 60)
         pdf.cell(0, 6, safe(f"Confidence: {res['confidence']:.2f}%"), ln=True)
 
-        pdf.set_x(130)
+        pdf.set_x(135)
         pdf.set_font("Arial", '', 9)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 5, safe(f"Resolution: {res['size']} px"), ln=True)
+
+        # Space labels below images
+        pdf.set_font("Arial", 'I', 7)
+        pdf.set_text_color(150, 150, 150)
+        pdf.set_xy(10, y_img + 60)
+        pdf.cell(58, 4, "[ MRI RAW SCAN ]", align='C')
+        pdf.set_xy(72, y_img + 60)
+        pdf.cell(58, 4, "[ SALIENCY HEATMAP ]", align='C')
+
+        pdf.set_y(y_img + 70)
+        pdf.set_draw_color(220, 220, 220)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(6)
 
         if os.path.exists(tmp_mri_path): os.remove(tmp_mri_path)
         if os.path.exists(tmp_heat_path): os.remove(tmp_heat_path)
@@ -393,10 +410,8 @@ def create_pdf(results):
     pdf.ln(8)
     pdf.set_font("Arial", 'I', 7)
     pdf.set_text_color(150, 150, 150)
-    pdf.multi_cell(0, 4, safe("DISCLAIMER: Institutional research use only. Final diagnosis by professional only."))
+    pdf.multi_cell(0, 4, safe("DISCLAIMER: Institutional research use only. Final clinical diagnosis must be conducted by professional medical staff."))
     out = pdf.output(dest="S")
-    if isinstance(out, str):
-        return out.encode("latin-1", errors="replace")
     return bytes(out)
 
 # ── MODEL LOADER ─────────────────────────────────────────────────────────────
@@ -476,6 +491,7 @@ with col_hero:
         <ul style="font-size:12px; color:rgba(201,209,224,0.7); line-height:1.6; list-style-type: '→ '; padding-left:15px;">
             <li>Saliency Mapping (Occlusion Sensitivity)</li>
             <li>Real-time Image Augmentation Engine</li>
+            <li>Medical Knowledge Center Support</li>
             <li>Clinical PDF Export (MRI + Heatmap)</li>
             <li>MRI Image Validation & Security Filter</li>
         </ul>
@@ -490,7 +506,7 @@ with col_upload:
     uploaded_files = st.file_uploader("DROP MRI SCANS HERE", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
     st.markdown("<div style='font-family:\"Space Mono\",monospace; font-size:10px; letter-spacing:2px; color:rgba(99,179,237,0.25); text-align:center; margin-top:8px; text-transform:uppercase;'>JPG / PNG supported · Batch active</div>", unsafe_allow_html=True)
 
-# ── STEP 2: KNOWLEDGE BASE (NOW BELOW UPLOAD) ──────────────────────────────
+# ── STEP 2: KNOWLEDGE BASE ──────────────────────────────────────────────────
 st.markdown("""
 <div class="knowledge-section">
     <div class="knowledge-title">// Brain Tumor Knowledge Base</div>
@@ -499,25 +515,25 @@ st.markdown("""
             <div class="k-icon">🧠</div>
             <div class="k-title">Glioma</div>
             <div class="k-type">Invasive · Grade I–IV</div>
-            <div class="k-desc">Originates from glial cells. Highly invasive and spreads across brain tissue. High-grade variants require immediate intervention.</div>
+            <div class="k-desc">Originates from glial cells. Highly invasive and spreads across brain tissue.</div>
         </div>
         <div class="knowledge-card">
             <div class="k-icon">🛡️</div>
             <div class="k-title">Meningioma</div>
             <div class="k-type">Benign · Slow-Growing</div>
-            <div class="k-desc">Arises from protective layers. While slow-growing, specific locations can compress vital nerves causing deficits.</div>
+            <div class="k-desc">Arises from protective layers. Specific locations can compress vital nerves.</div>
         </div>
         <div class="knowledge-card">
             <div class="k-icon">💧</div>
             <div class="k-title">Pituitary</div>
             <div class="k-type">Hormonal · Glandular</div>
-            <div class="k-desc">Located at brain base. Affects hormonal balance and visual fields due to glandular pressure or deficiency.</div>
+            <div class="k-desc">Located at brain base. Affects hormonal balance and visual fields.</div>
         </div>
         <div class="knowledge-card no-tumor">
             <div class="k-icon">✅</div>
             <div class="k-title">No Tumor</div>
             <div class="k-type">Normal · Clear Scan</div>
-            <div class="k-desc">No indication of abnormal mass or malignant growth detected. Brain structure appears within standard limits.</div>
+            <div class="k-desc">No indication of abnormal mass or malignant growth detected.</div>
         </div>
     </div>
 </div>
@@ -573,13 +589,21 @@ if 'analysis_results' in st.session_state:
                 with t2: st.image(res["saliency"], use_container_width=True)
                 with t3:
                     for ci, p in enumerate(res["probs"]):
-                        st.text(f"{CLASS_NAMES[ci]} ({p*100:.1f}%)")
+                        st.markdown(f"<div style='font-size:12px; color:rgba(255,255,255,0.7)'>{CLASS_NAMES[ci]} ({p*100:.1f}%)</div>", unsafe_allow_html=True)
                         st.progress(p)
 
         st.markdown("<hr class='neo-divider'>", unsafe_allow_html=True)
         col_dl, col_info = st.columns([1, 2])
-        with col_dl: st.download_button("DOWNLOAD CLINICAL REPORT", create_pdf(results), f"NeuroScan_{datetime.now().strftime('%Y%m%d')}.pdf", "application/pdf")
-        with col_info: st.info("Institutional research use only. PDF report includes saliency mapping.")
+        with col_dl: 
+            # PDF Generation
+            pdf_data = create_pdf(results)
+            st.download_button("DOWNLOAD CLINICAL REPORT", pdf_data, f"NeuroScan_{datetime.now().strftime('%Y%m%d')}.pdf", "application/pdf")
+        
+        with col_info: 
+            # This section used to show None due to accidental empty return values
+            st.info("Institutional research use only. PDF report includes saliency mapping.")
 
 # ── FOOTER ───────────────────────────────────────────────────────────────────
-st.markdown("<br><div style='text-align:center; font-family:\"Space Mono\",monospace; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.12); padding: 24px 0;'>NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH &nbsp;·&nbsp; v2.4</div>", unsafe_allow_html=True)
+# Fixed footer logic to avoid 'None' output
+footer_html = "<br><div style='text-align:center; font-family:\"Space Mono\",monospace; font-size:9px; letter-spacing:4px; color:rgba(99,179,237,0.12); padding: 24px 0;'>NEUROSCAN AI &nbsp;·&nbsp; INSTITUTIONAL RESEARCH &nbsp;·&nbsp; v2.4</div>"
+st.markdown(footer_html, unsafe_allow_html=True)
