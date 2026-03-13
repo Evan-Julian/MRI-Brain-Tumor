@@ -4,8 +4,6 @@ import numpy as np
 import time
 import tempfile
 import cv2
-import json
-import h5py
 from PIL import Image
 from fpdf import FPDF
 from datetime import datetime
@@ -89,81 +87,68 @@ def preprocess(image):
     arr[:, :, 2] -= 123.68
     return np.expand_dims(arr, axis=0)
 
-# --- GRAD-CAM ENGINE (RECONSTRUCTOR VERSION) ---
+# --- GRAD-CAM ENGINE v3.4 ---
 def generate_gradcam(image, model_path):
     import tensorflow as tf
     from tensorflow.keras import layers, models
 
-    # MEMBANGUN ULANG ARSITEKTUR SESUAI COLAB ANDA
-    # Ini menjamin tidak ada error deserialisasi karena kita tidak membaca config dari H5
-    def rebuild_model_and_load_weights(weights_path):
-        base_model = tf.keras.applications.ResNet50(
-            weights=None, # Bobot akan diisi dari file .h5
-            include_top=False,
-            input_shape=(224, 224, 3)
-        )
+    def build_and_load():
+        # Membangun arsitektur manual sesuai Colab (ResNet50 + GAP + Dense 4)
+        base = tf.keras.applications.ResNet50(include_top=False, weights=None, input_shape=(224, 224, 3))
         
-        # Sesuai struktur Sequential di Colab: base_model -> GAP -> Dense(4)
+        # Gunakan Sequential agar identik dengan saat training
         model = models.Sequential([
-            layers.Input(shape=(224, 224, 3)),
-            base_model,
+            layers.InputLayer(input_shape=(224, 224, 3)),
+            base,
             layers.GlobalAveragePooling2D(),
             layers.Dense(4, activation='softmax')
         ])
         
-        # Load bobot saja (By Name agar fleksibel)
-        model.load_weights(weights_path)
-        return model, base_model
+        # Load weights - skip_mismatch=True untuk antisipasi perbedaan naming convention Keras
+        model.load_weights(model_path, by_name=True, skip_mismatch=True)
+        return model, base
 
     try:
-        model, resnet_part = rebuild_model_and_load_weights(model_path)
+        model, resnet_part = build_and_load()
     except Exception as e:
-        return None
+        return None, str(e)
 
     img_array = preprocess(image)
     
-    # Target layer konvolusi terakhir pada ResNet50
-    # Kita ambil langsung dari resnet_part agar Grad-CAM akurat
     try:
+        # Layer konvolusi terakhir ResNet50
         target_layer = resnet_part.get_layer('conv5_block3_out')
         
-        # Bangun grad model fungsional
-        # Kita butuh grad model yang menghubungkan input resnet_part ke outputnya
+        # Gunakan Model Fungsional khusus untuk ekstraksi Grad-CAM
         grad_model = tf.keras.models.Model(
             [resnet_part.inputs], 
             [target_layer.output, resnet_part.output]
         )
-    except:
-        return None
-
-    # Karena grad_model hanya ResNet, kita perlu preprocess input sedikit
-    # (Di Colab, input langsung masuk ke base_model)
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
         
-        # Unpack jika tuple (Keras 3 safety)
-        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
-        if isinstance(predictions, (list, tuple)): predictions = predictions[0]
-        
-        # Cari index prediksi (tumor class)
-        class_idx = tf.argmax(predictions[0])
-        loss = predictions[:, class_idx]
+        with tf.GradientTape() as tape:
+            conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
+            # Unpacking untuk kompatibilitas Keras 3
+            if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
+            if isinstance(predictions, (list, tuple)): predictions = predictions[0]
+            
+            class_idx = tf.argmax(predictions[0])
+            loss = predictions[:, class_idx]
 
-    # Ekstraksi Gradien & Heatmap
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    
-    heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
-    
-    # Coloring & Overlay
-    heatmap_np = heatmap.numpy()
-    heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
-    heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
-    heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
-    
-    return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0))
+        grads = tape.gradient(loss, conv_outputs)
+        pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+        
+        heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
+        heatmap = tf.squeeze(heatmap)
+        heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
+        
+        heatmap_np = heatmap.numpy()
+        heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
+        heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
+        heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
+        
+        return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0)), None
+    except Exception as e:
+        return None, f"Mapping Error: {e}"
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -187,33 +172,41 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("v3.3: Manual Architecture Reconstructor (Final Stability Fix)")
+    st.caption("v3.4: Final Diagnostics & Error Tracking")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
 
 if uploaded_files:
-    if st.button(f"EXECUTE DIAGNOSTIC ({len(uploaded_files)} SCANS)"):
+    if st.button(f"EXECUTE ANALYSIS ({len(uploaded_files)} SCANS)"):
         all_results = []
         t_start = time.time()
         MODEL_PATH = 'best_resnet_20260307-162330.h5'
+        
         for f in uploaded_files:
             img = Image.open(f).convert('RGB')
             batch = preprocess(img)
             out = onnx_sess.run(None, {onnx_sess.get_inputs()[0].name: batch})[0]
             pred_idx = int(np.argmax(out[0]))
-            with st.spinner(f"XAI Analysis: {f.name}..."):
+            
+            with st.spinner(f"Analyzing {f.name}..."):
                 saliency_img = generate_saliency(onnx_sess, img, pred_idx)
+                
+                # Grad-CAM dengan Error Reporting
                 gradcam_img = None
+                gc_error = None
                 if os.path.exists(MODEL_PATH):
-                    try: gradcam_img = generate_gradcam(img, MODEL_PATH)
-                    except Exception as e: st.warning(f"XAI Engine Log: {e}")
+                    gradcam_img, gc_error = generate_gradcam(img, MODEL_PATH)
+                else:
+                    gc_error = "Model file (.h5) not found on server."
+            
             all_results.append({
-                'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img,
+                'image': img, 'saliency': saliency_img, 'gradcam': gradcam_img, 'error': gc_error,
                 'filename': f.name, 'label': {0:"Glioma", 1:"Meningioma", 2:"No Tumor", 3:"Pituitary"}.get(pred_idx, "Unknown"),
                 'confidence': float(np.max(out[0])) * 100
             })
         
+        # Dashboard Stats
         s1, s2, s3 = st.columns(3)
         s1.markdown(f"<div class='stat-box'>SCANS<br><h2>{len(all_results)}</h2></div>", unsafe_allow_html=True)
         s2.markdown(f"<div class='stat-box'>AVG ACC<br><h2>{np.mean([r['confidence'] for r in all_results]):.1f}%</h2></div>", unsafe_allow_html=True)
@@ -225,9 +218,11 @@ if uploaded_files:
             c1, c2, c3 = st.columns(3)
             with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
-                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Localization", use_container_width=True)
-                else: st.info("XAI Engine Unavailable")
-            with c3: st.image(res['saliency'], caption="Saliency (Occlusion Map)", use_container_width=True)
+                if res['gradcam']: 
+                    st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
+                else: 
+                    st.error(f"XAI Engine Error: {res['error']}")
+            with c3: st.image(res['saliency'], caption="Saliency (Occlusion)", use_container_width=True)
 
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
 else:
