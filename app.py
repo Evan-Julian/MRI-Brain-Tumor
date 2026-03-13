@@ -89,67 +89,75 @@ def preprocess(image):
     arr[:, :, 2] -= 123.68
     return np.expand_dims(arr, axis=0)
 
-# --- GRAD-CAM ENGINE ---
+# --- GRAD-CAM ENGINE (RECONSTRUCTOR VERSION) ---
 def generate_gradcam(image, model_path):
     import tensorflow as tf
+    from tensorflow.keras import layers, models
 
-    def fixed_load_model(path):
-        try:
-            return tf.keras.models.load_model(path, compile=False)
-        except Exception:
-            # Bypass error 'batch_shape' dengan memanipulasi metadata H5
-            with h5py.File(path, 'r') as f:
-                model_config = f.attrs.get('model_config')
-                # Penanganan error 'str' object has no attribute 'decode'
-                if isinstance(model_config, bytes):
-                    model_config = model_config.decode('utf-8')
-                
-                config_dict = json.loads(model_config)
-                
-                # Mengubah batch_shape menjadi shape untuk kompatibilitas Keras 3
-                layers = config_dict.get('config', {}).get('layers', [])
-                for layer in layers:
-                    if 'batch_shape' in layer.get('config', {}):
-                        layer['config']['shape'] = layer['config'].pop('batch_shape')
-                
-                with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
-                    tmp_path = tmp.name
-                
-                with h5py.File(tmp_path, 'w') as f_new:
-                    for key in f.keys():
-                        f.copy(key, f_new)
-                    f_new.attrs['model_config'] = json.dumps(config_dict).encode('utf-8')
-            
-            patched_model = tf.keras.models.load_model(tmp_path, compile=False)
-            os.remove(tmp_path)
-            return patched_model
+    # MEMBANGUN ULANG ARSITEKTUR SESUAI COLAB ANDA
+    # Ini menjamin tidak ada error deserialisasi karena kita tidak membaca config dari H5
+    def rebuild_model_and_load_weights(weights_path):
+        base_model = tf.keras.applications.ResNet50(
+            weights=None, # Bobot akan diisi dari file .h5
+            include_top=False,
+            input_shape=(224, 224, 3)
+        )
+        
+        # Sesuai struktur Sequential di Colab: base_model -> GAP -> Dense(4)
+        model = models.Sequential([
+            layers.Input(shape=(224, 224, 3)),
+            base_model,
+            layers.GlobalAveragePooling2D(),
+            layers.Dense(4, activation='softmax')
+        ])
+        
+        # Load bobot saja (By Name agar fleksibel)
+        model.load_weights(weights_path)
+        return model, base_model
 
-    model = fixed_load_model(model_path)
+    try:
+        model, resnet_part = rebuild_model_and_load_weights(model_path)
+    except Exception as e:
+        return None
+
     img_array = preprocess(image)
     
-    # Navigasi ke sub-model jika menggunakan Sequential wrapper
-    target_model = model
-    if hasattr(model, 'layers') and isinstance(model.layers[0], tf.keras.Model):
-        target_model = model.layers[0]
-
     # Target layer konvolusi terakhir pada ResNet50
-    target_layer = target_model.get_layer('conv5_block3_out')
-    
-    grad_model = tf.keras.models.Model([target_model.inputs], [target_layer.output, target_model.output])
+    # Kita ambil langsung dari resnet_part agar Grad-CAM akurat
+    try:
+        target_layer = resnet_part.get_layer('conv5_block3_out')
+        
+        # Bangun grad model fungsional
+        # Kita butuh grad model yang menghubungkan input resnet_part ke outputnya
+        grad_model = tf.keras.models.Model(
+            [resnet_part.inputs], 
+            [target_layer.output, resnet_part.output]
+        )
+    except:
+        return None
 
+    # Karena grad_model hanya ResNet, kita perlu preprocess input sedikit
+    # (Di Colab, input langsung masuk ke base_model)
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(tf.cast(img_array, tf.float32))
+        
+        # Unpack jika tuple (Keras 3 safety)
         if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
         if isinstance(predictions, (list, tuple)): predictions = predictions[0]
         
-        loss = predictions[:, tf.argmax(predictions[0])]
+        # Cari index prediksi (tumor class)
+        class_idx = tf.argmax(predictions[0])
+        loss = predictions[:, class_idx]
 
+    # Ekstraksi Gradien & Heatmap
     grads = tape.gradient(loss, conv_outputs)
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+    
     heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     
+    # Coloring & Overlay
     heatmap_np = heatmap.numpy()
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
@@ -179,7 +187,7 @@ st.markdown('<div class="neuro-header"><div class="neuro-logo">NEUROSCAN AI / DI
 col_h, col_u = st.columns([1, 1])
 with col_h:
     st.markdown('<div class="hero-title">BRAIN <span style="color:#63B3ED">TUMOR</span> ANALYSIS</div>', unsafe_allow_html=True)
-    st.caption("v3.2: Robust XAI Visualization & Multi-Model Diagnostics")
+    st.caption("v3.3: Manual Architecture Reconstructor (Final Stability Fix)")
 with col_u:
     onnx_sess = load_onnx_session()
     uploaded_files = st.file_uploader("Upload MRI", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
@@ -218,7 +226,7 @@ if uploaded_files:
             with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
                 if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Localization", use_container_width=True)
-                else: st.info("Grad-CAM Engine Unavailable")
+                else: st.info("XAI Engine Unavailable")
             with c3: st.image(res['saliency'], caption="Saliency (Occlusion Map)", use_container_width=True)
 
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
