@@ -97,68 +97,63 @@ def generate_gradcam(image, model_path):
 
     img_array = preprocess(image)
     
-    # 1. TEMUKAN TARGET MODEL & LAYER
-    target_model = None
-    target_layer_name = 'conv5_block3_out' # Default ResNet50
+    # MENCARI MODEL & LAYER TARGET (MENGATASI SEQUENTIAL WRAPPER)
+    target_model = model
+    target_layer_name = 'conv5_block3_out'
 
-    for layer in model.layers:
-        if isinstance(layer, tf.keras.Model) or 'resnet50' in layer.name.lower():
-            target_model = layer
-            break
-    
-    if not target_model: target_model = model
+    # Jika ResNet dibungkus Sequential, masuk ke dalamnya
+    if len(model.layers) > 0 and isinstance(model.layers[0], tf.keras.Model):
+        target_model = model.layers[0]
 
-    # 2. EKSTRAKSI TENSOR SECARA AMAN (MENGHINDARI TUPLE)
     try:
-        # Kita ambil output tensor asli dari layer, bukan list/tuple pembungkusnya
-        last_conv_layer = target_model.get_layer(target_layer_name)
-        last_conv_output = last_conv_layer.output
-        
-        # Jika output dibungkus list/tuple oleh Keras, bongkar di sini
-        if isinstance(last_conv_output, list): last_conv_output = last_conv_output[0]
-        
-        model_input = target_model.input
-        if isinstance(model_input, list): model_input = model_input[0]
+        # EKSTRAKSI TENSOR SECARA MURNI
+        # Kita ambil .output[0] jika ia terdeteksi sebagai list/tuple di level Keras
+        conv_output = target_model.get_layer(target_layer_name).output
+        if isinstance(conv_output, list): conv_output = conv_output[0]
         
         model_output = target_model.output
         if isinstance(model_output, list): model_output = model_output[0]
 
-        # Buat Model Grad-CAM Baru dengan Tensor murni
-        grad_model = tf.keras.Model(inputs=model_input, outputs=[last_conv_output, model_output])
-    except Exception as e:
+        # RE-CONSTRUCT MODEL FUNGSIONAL UNTUK TRACKING GRADIENT
+        grad_model = tf.keras.Model(target_model.inputs, [conv_output, model_output])
+    except:
         return None
 
-    # 3. GRADIENT COMPUTATION
     with tf.GradientTape() as tape:
-        conv_outputs, preds = grad_model(img_array)
+        # FORCE TENSOR CONVERSION
+        inputs = tf.cast(img_array, tf.float32)
+        conv_outputs, predictions = grad_model(inputs)
         
-        # Double check unpacking di dalam tape
-        if isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
-        if isinstance(preds, (list, tuple)): preds = preds[0]
-        
-        class_idx = tf.argmax(preds[0])
-        loss = preds[:, class_idx]
+        # PENANGANAN KHUSUS NESTED TUPLE (((...)))
+        if isinstance(conv_outputs, (list, tuple)):
+            while isinstance(conv_outputs, (list, tuple)): conv_outputs = conv_outputs[0]
+        if isinstance(predictions, (list, tuple)):
+            while isinstance(predictions, (list, tuple)): predictions = predictions[0]
 
-    # Ekstraksi gradien terhadap filter konvolusi
+        class_idx = tf.argmax(predictions[0])
+        loss = predictions[:, class_idx]
+
+    # Ambil gradien murni
     grads = tape.gradient(loss, conv_outputs)
     
-    # GAP (Global Average Pooling)
+    # Global Average Pooling
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     
-    # Weighting Feature Maps
-    conv_outputs_val = conv_outputs[0]
-    heatmap = conv_outputs_val @ pooled_grads[..., tf.newaxis]
+    # Hitung Heatmap
+    heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
     
-    # Normalisasi & Coloring
+    # Normalisasi
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-10)
     heatmap_np = heatmap.numpy()
     
+    # Color mapping & Overlay
     heatmap_res = cv2.resize(heatmap_np, (image.size[0], image.size[1]))
     heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_res), cv2.COLORMAP_JET)
     heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
     
-    return Image.fromarray(cv2.addWeighted(np.array(image.convert('RGB')), 0.6, heatmap_rgb, 0.4, 0))
+    original_img = np.array(image.convert('RGB'))
+    return Image.fromarray(cv2.addWeighted(original_img, 0.6, heatmap_rgb, 0.4, 0))
 
 def generate_saliency(session, image, pred_class):
     inp_name = session.get_inputs()[0].name
@@ -216,9 +211,9 @@ if uploaded_files:
             is_tumor = res['label'] != "No Tumor"
             st.markdown(f'<div class="scan-result {"tumor" if is_tumor else ""}">{res["label"].upper()} - {res["filename"]} ({res["confidence"]:.1f}%)</div>', unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            with c1: st.image(res['image'], caption="Original", use_container_width=True)
+            with c1: st.image(res['image'], caption="Original MRI", use_container_width=True)
             with c2: 
-                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM", use_container_width=True)
+                if res['gradcam']: st.image(res['gradcam'], caption="Grad-CAM Focus", use_container_width=True)
                 else: st.info("Grad-CAM Unavailable")
             with c3: st.image(res['saliency'], caption="Saliency Map", use_container_width=True)
         st.download_button("DOWNLOAD CLINICAL REPORT (PDF)", create_pdf(all_results), file_name=f"NeuroScan_Report_{datetime.now().strftime('%H%M')}.pdf")
