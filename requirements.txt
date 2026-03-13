@@ -1,6 +1,8 @@
 streamlit
-onnxruntime
-numpy<2.0.0
+tensorflow
+scikit-learn
 pillow
-opencv-python-headless
-fpdf
+numpy
+keras
+onnxruntime
+fpdf==1.7.2
