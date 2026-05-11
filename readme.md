@@ -186,12 +186,12 @@ Performance metrics were computed using **Accuracy, Precision, Recall, and F1-Sc
 
 | Model Architecture                            | Training / Validation               | Test Accuracy        | Precision   | Recall      | F1-Score    |
 | --------------------------------------------- | ----------------------------------- | -------------------- | ----------- | ----------- | ----------- |
-| **DenseNet121 (Baseline)**                    | Transfer Learning + Fine-Tuning     | 93–95%               | 0.93        | 0.93        | 0.93        |
-| **ResNet50 (Baseline)**                       | Transfer Learning + Fine-Tuning     | 94–96%               | 0.94        | 0.94        | 0.94        |
-| **Hybrid DenseNet + SVM**                     | CNN Feature Extraction + SVM        | 95–97%               | 0.95        | 0.95        | 0.95        |
-| **Hybrid ResNet + SVM**                       | CNN Feature Extraction + SVM        | 96–98%               | 0.96        | 0.96        | 0.96        |
-| **Proposed Feature Fusion (CNN + PCA + SVM)** | DenseNet + ResNet Feature Fusion    | 98–99%               | 0.98        | 0.98        | 0.98        |
-| **Final Ensemble Model**                      | Soft Voting (ResNet + SVM + Fusion) | **Best Performance** | **Highest** | **Highest** | **Optimal** |
+| **DenseNet121 (Baseline)**                    | Transfer Learning + Fine-Tuning     | 94.89%               | 0.94        | 0.94        | 0.93        |
+| **ResNet50 (Baseline)**                       | Transfer Learning + Fine-Tuning     | 99.39%               | 0.99        | 0.99        | 0.94        |
+| **Hybrid DenseNet + SVM**                     | CNN Feature Extraction + SVM        | 98.32%               | 0.98        | 0.98        | 0.95        |
+| **Hybrid ResNet + SVM**                       | CNN Feature Extraction + SVM        | 99.24%               | 0.99        | 0.99        | 0.96        |
+| **Proposed Feature Fusion (CNN + PCA + SVM)** | DenseNet + ResNet Feature Fusion    | 99.08%               | 0.99        | 0.99        | 0.98        |
+| **Final Ensemble Model**                      | Soft Voting (ResNet + SVM + Fusion) | **99.62%** | **1.00** | **Highest** | **Optimal** |
 
 ---
 
