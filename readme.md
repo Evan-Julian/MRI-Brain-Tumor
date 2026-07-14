@@ -293,7 +293,7 @@ If you use this work in your research, please cite:
 ```bibtex
 @thesis{priyasa2026brain,
   author = {Muhammad Evan Julian Priyasa},
-  title = {Performance Analysis of Hybrid DenseNet121 and ResNet50 Feature Fusion with Support Vector Machine for Brain Tumor MRI Classification},
+  title = {Performance Analysis of Hybrid Esnsemble DenseNet121 And ResNet50 For Brain Tumor MRI Classification Systems},
   school = {Universitas Multimedia Nusantara},
   year = {2026}
 }
