@@ -1,236 +1,349 @@
+# Brain Tumor MRI Classification Using Hybrid DenseNet121-ResNet50 Feature Fusion and Support Vector Machine
+
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Research](https://img.shields.io/badge/Type-Research%20Project-purple)
+Official implementation of the undergraduate thesis:
 
-# 🧠 NeuroScan AI | Precision Neuro-Imaging Diagnostic
+**Performance Analysis of Hybrid DenseNet121 and ResNet50 Feature Fusion with Support Vector Machine for Brain Tumor MRI Classification**
 
-**NeuroScan AI** is a specialized medical imaging tool designed for the detection and classification of brain tumors from MRI scans. Leveraging deep learning architectures and advanced saliency mapping, this system provides clinical-grade analytics to assist in institutional research and preliminary neurological assessments.
+---
+
+## 📋 Overview
+
 
 ![Platform Version](https://img.shields.io/badge/Version-2.4-blue)
 ![Python](https://img.shields.io/badge/Python-3.10+-green)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-FF4B4B)
 ![Model](https://img.shields.io/badge/Model-ResNet50-orange)
 
----
+Brain tumor diagnosis using Magnetic Resonance Imaging (MRI) remains a challenging task due to variations in tumor shape, size, image quality, and the complexity of manual interpretation by radiologists. This research proposes a hybrid Deep Learning and Machine Learning framework for multiclass brain tumor classification using MRI images.
 
-# 🔬 System Overview
+The proposed framework utilizes DenseNet121 and ResNet50 as deep feature extractors. The extracted features are combined through feature fusion, reduced using Principal Component Analysis (PCA), standardized using StandardScaler, and classified using Support Vector Machine (SVM) with an RBF kernel. To improve model interpretability, Grad-CAM is employed to visualize the regions that contribute to the prediction results.
 
-The application utilizes a **ResNet50** model optimized via **ONNX Runtime** for high-speed, CPU-efficient inference. It classifies scans into four distinct categories:
-
-* **Glioma** – Invasive tumors originating from glial cells
-* **Meningioma** – Typically benign tumors arising from the protective layers (meninges)
-* **Pituitary** – Tumors located at the brain base affecting hormonal regulation
-* **No Tumor** – MRI scans indicating no abnormal masses or structures
+The experiments were conducted on a public MRI dataset consisting of **7,023 images** across four brain tumor categories.
 
 ---
 
-# ✨ Key Features
+## ✨ Key Features
 
-* **🎯 Automated Tumor Localization**
-  Automatically identifies and generates bounding boxes around suspected tumorous regions using saliency thresholding.
-
-* **🗺️ Saliency Mapping**
-  Visualizes the AI's decision-making process through heatmaps, highlighting areas of high diagnostic importance.
-
-* **🖼️ Real-time Image Augmentation**
-  Provides manual controls for **Brightness, Contrast, and Sharpness** to enhance visual inspection.
-
-* **📄 Clinical PDF Export**
-  Generates diagnostic reports containing original MRI scans, heatmaps, model confidence scores, and resolution data.
-
-* **🛡️ MRI Validation Filter**
-  Ensures uploaded files follow MRI-like characteristics (grayscale validation and texture inspection).
+- Hybrid Deep Learning and Machine Learning framework
+- Transfer Learning using DenseNet121 and ResNet50
+- Deep Feature Fusion through feature concatenation
+- Principal Component Analysis (PCA) for dimensionality reduction
+- StandardScaler for feature normalization
+- Support Vector Machine (SVM) with RBF Kernel
+- Explainable AI using Grad-CAM
+- Multiclass Brain Tumor Classification
+- Streamlit deployment (NeuroScan AI)
 
 ---
 
-# 🛠️ Technical Stack
+## 🎯 Key Contributions
 
-| Component               | Technology                   |
-| :---------------------- | :--------------------------- |
-| **Frontend**            | Streamlit (Responsive UI/UX) |
-| **Deep Learning Model** | ResNet50 (ONNX Format)       |
-| **Inference Engine**    | ONNX Runtime                 |
-| **Image Processing**    | Pillow (PIL), NumPy          |
-| **Report Generation**   | FPDF                         |
+- Proposed a hybrid CNN-SVM framework combining DenseNet121 and ResNet50 feature representations.
+- Implemented Deep Feature Fusion to integrate complementary features from two pretrained CNN architectures.
+- Applied Principal Component Analysis (PCA) to reduce feature dimensionality before classification.
+- Compared baseline CNN models and Hybrid CNN-SVM models under identical experimental settings.
+- Improved model interpretability using Grad-CAM visualization.
+- Developed a prototype web application (NeuroScan AI) for real-time brain tumor prediction.
 
 ---
 
-# 🚀 Installation & Local Setup
+# 🏗 Project Architecture / Research Workflow
 
-## 1. Clone the Repository
+## Proposed Model
+
+<p align="center">
+  <img src="Diagram-Proposed%20Model%20V4.jpg" alt="Proposed Hybrid CNN-SVM Framework" width="100%">
+</p>
+
+The proposed hybrid framework consists of the following stages:
+
+1. **Data Collection**
+   - Brain MRI dataset (7,023 images)
+   - Four classes: Glioma, Meningioma, Pituitary, and No Tumor
+
+2. **Data Preprocessing**
+   - Resize images to 224 × 224
+   - ImageNet preprocessing
+   - Normalization
+   - Data augmentation
+     - Rotation
+     - Zoom
+     - Width Shift
+     - Height Shift
+     - Brightness Adjustment
+     - Horizontal Flip
+
+3. **CNN Training**
+   - DenseNet121
+   - ResNet50
+   - Adam Optimizer
+   - Batch Size: 32
+   - Initial Training: 20 Epochs
+   - Fine-Tuning: 35 Epochs
+
+4. **Feature Extraction**
+   - Global Average Pooling (GAP)
+   - Deep Feature Extraction
+   - Feature Fusion (Concatenation)
+   - PCA Dimensionality Reduction
+
+5. **Classification**
+   - StandardScaler
+   - Support Vector Machine (RBF Kernel)
+
+6. **Prediction**
+   - Brain Tumor Classification
+   - Grad-CAM Visualization
+
+---
+
+## CRISP-DM Methodology
+
+<p align="center">
+  <img src="Diagram-CRISP-DM.jpg" alt="CRISP-DM Methodology" width="100%">
+</p>
+
+This research follows the CRISP-DM (Cross Industry Standard Process for Data Mining) methodology consisting of six stages:
+
+1. Business Understanding
+2. Data Understanding
+3. Data Preparation
+4. Modeling
+5. Evaluation
+6. Deployment
+
+The developed prototype was deployed as **NeuroScan AI**, a Streamlit-based application for real-time brain tumor classification and Grad-CAM visualization.
+
+---
+
+# 🚀 Installation
+
+## Requirements
+
+- Python 3.11
+- TensorFlow 2.x
+- Scikit-learn
+- NumPy
+- OpenCV
+- Matplotlib
+- Pandas
+- Streamlit
+- ONNX Runtime
+
+## Clone Repository
 
 ```bash
-git clone https://github.com/Evan-Julian/MRI-Brain-Tumor.git
-cd MRI-Brain-Tumor
+git clone https://github.com/Evan-Julian/BrainTumorMRIClassification.git
+
+cd BrainTumorMRIClassification
 ```
 
-## 2. Install Dependencies
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 3. Model Setup
+---
 
-Ensure the pretrained model file is placed in the project root:
+# 📊 Dataset Preparation
 
+## Brain Tumor MRI Dataset
+
+The experiments were conducted using a merged public Brain MRI dataset consisting of **7,023 MRI images**.
+
+### Dataset Distribution
+
+| Class | Images |
+|--------|-------:|
+| Glioma | 1,321 |
+| Meningioma | 1,339 |
+| Pituitary | 1,457 |
+| No Tumor | 1,595 |
+| **Total** | **7,023** |
+
+### Dataset Sources
+
+- Figshare Brain Tumor Dataset
+- SARTAJ Brain MRI Dataset
+- Br35H Brain MRI Dataset
+
+### Dataset Structure
+
+```text
+dataset/
+│
+├── glioma/
+├── meningioma/
+├── pituitary/
+└── notumor/
 ```
-resnet_model.onnx
-```
 
-## 4. Run the Application
+---
 
-```bash
-streamlit run app.py
-```
+# 🏋 Training
 
-After running, the application will launch automatically in your browser.
+## Data Preprocessing
 
+- Resize (224 × 224)
+- ImageNet Preprocessing
+- Normalization
+- Rotation
+- Zoom
+- Width Shift
+- Height Shift
+- Brightness Adjustment
+- Horizontal Flip
+
+## Training Configuration
+
+| Parameter | Value |
+|------------|--------|
+| Optimizer | Adam |
+| Loss Function | Categorical Crossentropy |
+| Batch Size | 32 |
+| Initial Training | 20 Epochs |
+| Fine-Tuning | 35 Epochs |
+| Image Size | 224 × 224 |
+
+### Callbacks
+
+- EarlyStopping
+- ReduceLROnPlateau
+- ModelCheckpoint
+
+---
+
+# 📊 Results
+
+The proposed framework was evaluated using **Accuracy, Precision, Recall, F1-score, Classification Report, Confusion Matrix, and Grad-CAM visualization**. Six different models were compared under identical experimental settings.
+
+## Overall Model Performance
+
+| Model | Accuracy | Precision | Recall |
+|--------|---------:|----------:|-------:|
+| DenseNet121 | 94.89% | 0.94 | 0.94 |
+| Hybrid DenseNet121 + SVM | 98.32% | 0.98 | 0.98 |
+| Fusion Model | 99.08% | 0.99 | 0.99 |
+| Hybrid ResNet50 + SVM | 99.24% | 0.99 | 0.99 |
+| ResNet50 | 99.39% | 0.99 | 0.99 |
+| **Proposed Ensemble** | **99.62%** | **1.00** | **1.00** |
+
+The **Proposed Ensemble** achieved the best overall performance with an **Accuracy of 99.62%**, outperforming all baseline CNN models and hybrid CNN-SVM approaches. This demonstrates that combining DenseNet121 and ResNet50 through feature fusion and ensemble learning provides superior classification performance for multiclass brain tumor MRI images.
+
+---
+
+## Per-Class Classification Performance of the Proposed Ensemble
+
+| Class | Precision | Recall | F1-score |
+|--------|----------:|--------:|---------:|
+| Glioma | **1.0000** | **0.9900** | **0.9950** |
+| Meningioma | **0.9871** | **0.9967** | **0.9919** |
+| No Tumor | **0.9975** | **1.0000** | **0.9988** |
+| Pituitary | **1.0000** | **0.9967** | **0.9983** |
+
+The proposed ensemble model consistently achieved high classification performance across all four brain tumor categories. The **No Tumor** class obtained a perfect recall of **1.0000**, while the **Glioma** and **Pituitary** classes achieved perfect precision (**1.0000**). These results indicate excellent robustness and generalization capability for multiclass brain tumor classification.
+
+---
+
+## Evaluation Metrics
+
+The evaluation includes:
+
+- Overall Accuracy
+- Precision
+- Recall
+- F1-score
+- Classification Report
+- Confusion Matrix
+- Grad-CAM Visualization
 ---
 
 # 📂 Project Structure
 
-```
-MRI-Brain-Tumor
+```text
+BrainTumorMRIClassification/
+
 │
-├── app.py
-├── resnet_model.onnx
+├── dataset/
+│
+├── models/
+│   ├── DenseNet121/
+│   └── ResNet50/
+│
+├── notebooks/
+│
+├── feature_extraction/
+│
+├── svm/
+│
+├── gradcam/
+│
+├── app/
+│   └── streamlit_app.py
+│
+├── results/
+│   ├── confusion_matrix/
+│   ├── gradcam/
+│   ├── accuracy_curve/
+│   └── loss_curve/
+│
 ├── requirements.txt
-└── .devcontainer/
+│
+└── README.md
 ```
 
-**Description**
-
-* **app.py** — Main Streamlit application containing UI logic, preprocessing, inference, and visualization pipeline
-* **resnet_model.onnx** — Pretrained ResNet50 deep learning model
-* **requirements.txt** — Python dependencies required to run the system
-* **.devcontainer/** — Development container configuration for reproducible environments
-
 ---
 
-# 📂 Dataset
+# 📝 Citation
 
-This project uses the **Masoud Nickparvar Brain Tumor MRI Dataset**, which contains MRI scans categorized into four classes.
+If you use this work in your research, please cite:
 
-**Dataset Characteristics**
-
-| Category | Description |
-|--------|--------|
-| Glioma | Tumors originating from glial cells |
-| Meningioma | Tumors arising from the meninges |
-| Pituitary | Tumors affecting the pituitary gland |
-| No Tumor | MRI scans without tumor presence |
-
-**Dataset Statistics**
-
-- Total Images: ~7000+ MRI scans  
-- Image Size: Resized to **224 × 224 pixels**  
-- Classes: **4 categories**
-
-The dataset is commonly used in brain tumor classification research and provides balanced MRI samples for deep learning models.
-
-# 🧠 Model Architecture (ResNet50)
-
-The **ResNet50 architecture** is used as the primary deep learning backbone for MRI brain tumor classification.
-
-ResNet introduces **residual connections** that allow gradients to propagate through deep networks, enabling more stable training for complex medical imaging tasks.
-
-### Architecture Overview
-
-```
-Input MRI Image (224 × 224 × 3)
-        │
-        ▼
-Conv Layer (7×7, 64 filters)
-        │
-        ▼
-Max Pooling
-        │
-        ▼
-Residual Block Stage 1
-        │
-        ▼
-Residual Block Stage 2
-        │
-        ▼
-Residual Block Stage 3
-        │
-        ▼
-Residual Block Stage 4
-        │
-        ▼
-Global Average Pooling
-        │
-        ▼
-Dense Layer (512)
-        │
-        ▼
-Dense Layer (256)
-        │
-        ▼
-Softmax Output (4 Classes)
+```bibtex
+@thesis{priyasa2026brain,
+  author = {Muhammad Evan Julian Priyasa},
+  title = {Performance Analysis of Hybrid DenseNet121 and ResNet50 Feature Fusion with Support Vector Machine for Brain Tumor MRI Classification},
+  school = {Universitas Multimedia Nusantara},
+  year = {2026}
+}
 ```
 
-**Output Classes**
+---
 
-* Glioma
-* Meningioma
-* Pituitary
-* No Tumor
+# 🙏 Acknowledgments
+
+This research was conducted under the supervision of the **Big Data Laboratory**, Information Systems Study Program, Universitas Multimedia Nusantara.
+
+Special thanks to:
+
+- Big Data Laboratory, Universitas Multimedia Nusantara
+- Information Systems Study Program, Universitas Multimedia Nusantara
+- Public Brain MRI Dataset Providers (Figshare, SARTAJ, and Br35H)
+- Thesis Supervisor
+- Universitas Multimedia Nusantara
 
 ---
 
-# 📊 Final Model Performance Comparison
+# 📧 Contact
 
-The following table summarizes the evaluation results of all architectures tested in this research pipeline.
-Performance metrics were computed using **Accuracy, Precision, Recall, and F1-Score** on the testing dataset.
+**Muhammad Evan Julian Priyasa**
 
-| Model Architecture                            | Training / Validation               | Test Accuracy        | Precision   | Recall      | F1-Score    |
-| --------------------------------------------- | ----------------------------------- | -------------------- | ----------- | ----------- | ----------- |
-| **DenseNet121 (Baseline)**                    | Transfer Learning + Fine-Tuning     | 94.89%               | 0.94        | 0.94        | 0.93        |
-| **ResNet50 (Baseline)**                       | Transfer Learning + Fine-Tuning     | 99.39%               | 0.99        | 0.99        | 0.94        |
-| **Hybrid DenseNet + SVM**                     | CNN Feature Extraction + SVM        | 98.32%               | 0.98        | 0.98        | 0.95        |
-| **Hybrid ResNet + SVM**                       | CNN Feature Extraction + SVM        | 99.24%               | 0.99        | 0.99        | 0.96        |
-| **Proposed Feature Fusion (CNN + PCA + SVM)** | DenseNet + ResNet Feature Fusion    | 99.08%               | 0.99        | 0.99        | 0.98        |
-| **Final Ensemble Model**                      | Soft Voting (ResNet + SVM + Fusion) | **99.62%** | **1.00** | **Highest** | **Optimal** |
+Information Systems Undergraduate Student
 
----
+Universitas Multimedia Nusantara
 
-### 📈 Evaluation Metrics
+📧 Email: muhammad.evan@student.umn.ac.id
 
-| Metric        | Description                                           |
-| ------------- | ----------------------------------------------------- |
-| **Accuracy**  | Overall percentage of correctly classified MRI images |
-| **Precision** | Ratio of correctly predicted tumor cases              |
-| **Recall**    | Ability of the model to detect actual tumor cases     |
-| **F1-Score**  | Harmonic mean of precision and recall                 |
+🐙 GitHub: https://github.com/Evan-Julian
 
-The results demonstrate that **feature fusion and ensemble learning significantly improve classification performance**, outperforming individual deep learning models.
+💼 LinkedIn: https://www.linkedin.com/in/evanjulianp/
 
 ---
 
-### 🧠 Key Insight
+# 📜 License
 
-The **Final Ensemble Model**, which combines:
+This project is intended for **academic and research purposes only**.
 
-* Deep learning predictions (**ResNet50**)
-* Hybrid models (**CNN + SVM**)
-* Feature fusion representations (**DenseNet + ResNet features**)
-
-achieves the **most robust performance for brain tumor MRI classification**.
-
----
-
-
-
-# 📄 Disclaimer
-
-**Institutional Research Use Only**
-
-This tool is intended for research assistance and preliminary diagnostic exploration.
-Final clinical decisions must always be performed by licensed medical professionals.
-
----
-
-**Author:** Evan-Julian
-**Status:** Active Development
-**Last Updated:** March 2026
+The developed model is designed as a **Computer-Aided Diagnosis (CAD) decision support system** and is **not intended to replace professional medical diagnosis or clinical decision-making**.
