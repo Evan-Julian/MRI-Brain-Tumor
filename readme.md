@@ -1,10 +1,8 @@
-# Brain Tumor MRI Classification Using Hybrid DenseNet121-ResNet50 Feature Fusion and Support Vector Machine
+# PERFORMANCE ANALYSIS OF HYBRID ENSEMBLE DENSENET121 AND RESNET50 FOR BRAIN TUMOR MRI CLASSIFICATION SYSTEMS
 
-![License](https://img.shields.io/badge/License-MIT-green)
-![Research](https://img.shields.io/badge/Type-Research%20Project-purple)
 Official implementation of the undergraduate thesis:
 
-**Performance Analysis of Hybrid DenseNet121 and ResNet50 Feature Fusion with Support Vector Machine for Brain Tumor MRI Classification**
+**PERFORMANCE ANALYSIS OF HYBRID ENSEMBLE DENSENET121 AND RESNET50 FOR BRAIN TUMOR MRI CLASSIFICATION SYSTEMS**
 
 ---
 
@@ -15,6 +13,8 @@ Official implementation of the undergraduate thesis:
 ![Python](https://img.shields.io/badge/Python-3.10+-green)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-FF4B4B)
 ![Model](https://img.shields.io/badge/Model-ResNet50-orange)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?logo=tensorflow)
+![Scikit-Learn](https://img.shields.io/badge/scikit--learn-Latest-F7931E?logo=scikitlearn)
 
 Brain tumor diagnosis using Magnetic Resonance Imaging (MRI) remains a challenging task due to variations in tumor shape, size, image quality, and the complexity of manual interpretation by radiologists. This research proposes a hybrid Deep Learning and Machine Learning framework for multiclass brain tumor classification using MRI images.
 
@@ -135,9 +135,9 @@ The developed prototype was deployed as **NeuroScan AI**, a Streamlit-based appl
 ## Clone Repository
 
 ```bash
-git clone https://github.com/Evan-Julian/BrainTumorMRIClassification.git
+git clone https://github.com/Evan-Julian/MRI-Brain-Tumor.git
 
-cd BrainTumorMRIClassification
+cd MRI-Brain-Tumor
 ```
 
 ## Install Dependencies
@@ -145,6 +145,13 @@ cd BrainTumorMRIClassification
 ```bash
 pip install -r requirements.txt
 ```
+### Run the Application
+
+```bash
+streamlit run app.py
+```
+
+After launching, open the local URL displayed in the terminal (typically `http://localhost:8501`) to access the NeuroScan AI web application.
 
 ---
 
@@ -264,34 +271,16 @@ The evaluation includes:
 # 📂 Project Structure
 
 ```text
-BrainTumorMRIClassification/
+MRI-Brain-Tumor/
 
-│
-├── dataset/
-│
-├── models/
-│   ├── DenseNet121/
-│   └── ResNet50/
-│
-├── notebooks/
-│
-├── feature_extraction/
-│
-├── svm/
-│
-├── gradcam/
-│
-├── app/
-│   └── streamlit_app.py
-│
-├── results/
-│   ├── confusion_matrix/
-│   ├── gradcam/
-│   ├── accuracy_curve/
-│   └── loss_curve/
-│
+├── .devcontainer/
+├── Diagram-CRISP-DM.jpg
+├── Diagram-Proposed Model V4.jpg
+├── app.py
+├── best_resnet_20260307-162330.h5
+├── resnet_model.onnx
+├── scaler_resnet.pkl
 ├── requirements.txt
-│
 └── README.md
 ```
 
