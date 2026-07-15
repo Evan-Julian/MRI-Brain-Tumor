@@ -1,8 +1,6 @@
-# PERFORMANCE ANALYSIS OF HYBRID ENSEMBLE DENSENET121 AND RESNET50 FOR BRAIN TUMOR MRI CLASSIFICATION SYSTEMS
+# Performance Analysis of Hybrid Ensemble DenseNet121 and ResNet50 for Brain Tumor MRI Classification Systems
 
-Official implementation of the undergraduate thesis:
-
-**PERFORMANCE ANALYSIS OF HYBRID ENSEMBLE DENSENET121 AND RESNET50 FOR BRAIN TUMOR MRI CLASSIFICATION SYSTEMS**
+Official implementation of the undergraduate thesis at Universitas Multimedia Nusantara.
 
 ---
 
@@ -159,19 +157,25 @@ After launching, open the local URL displayed in the terminal (typically `http:/
 
 ## Brain Tumor MRI Dataset
 
-The experiments were conducted using a merged public Brain MRI dataset consisting of **7,023 MRI images**.
+The experiments were conducted using a merged public Brain MRI dataset consisting of **7,023 MRI images** from four brain tumor categories. The dataset was divided into **70% training data** and **30% testing data** using a holdout validation strategy.
 
 ### Dataset Distribution
 
-| Class | Images |
-|--------|-------:|
-| Glioma | 1,321 |
-| Meningioma | 1,339 |
-| Pituitary | 1,457 |
-| No Tumor | 1,595 |
-| **Total** | **7,023** |
+| Class | Training | Testing | Total |
+|--------|---------:|--------:|------:|
+| Glioma | 1,321 | 300 | 1,621 |
+| Meningioma | 1,339 | 306 | 1,645 |
+| No Tumor | 1,595 | 405 | 2,000 |
+| Pituitary | 1,457 | 300 | 1,757 |
+| **Total** | **5,712** | **1,311** | **7,023** |
+
+<p align="center">
+    <img src="Dataset-Distribution.png" alt="Dataset Distribution" width="85%">
+</p>
 
 ### Dataset Sources
+
+The merged dataset was compiled from three publicly available brain MRI datasets:
 
 - Figshare Brain Tumor Dataset
 - SARTAJ Brain MRI Dataset
@@ -181,11 +185,17 @@ The experiments were conducted using a merged public Brain MRI dataset consistin
 
 ```text
 dataset/
+├── train/
+│   ├── glioma/
+│   ├── meningioma/
+│   ├── notumor/
+│   └── pituitary/
 │
-├── glioma/
-├── meningioma/
-├── pituitary/
-└── notumor/
+└── test/
+    ├── glioma/
+    ├── meningioma/
+    ├── notumor/
+    └── pituitary/
 ```
 
 ---
@@ -293,7 +303,7 @@ If you use this work in your research, please cite:
 ```bibtex
 @thesis{priyasa2026brain,
   author = {Muhammad Evan Julian Priyasa},
-  title = {Performance Analysis of Hybrid Esnsemble DenseNet121 And ResNet50 For Brain Tumor MRI Classification Systems},
+  title = {Performance Analysis of Hybrid Ensemble DenseNet121 and ResNet50 for Brain Tumor MRI Classification Systems},
   school = {Universitas Multimedia Nusantara},
   year = {2026}
 }
@@ -305,12 +315,12 @@ If you use this work in your research, please cite:
 
 This research was conducted under the supervision of the **Big Data Laboratory**, Information Systems Study Program, Universitas Multimedia Nusantara.
 
-Special thanks to:
+The author would like to express sincere gratitude to:
 
+- **Ir. Raymond Sunardi, M.CIS.** (Thesis Advisor)
 - Big Data Laboratory, Universitas Multimedia Nusantara
 - Information Systems Study Program, Universitas Multimedia Nusantara
 - Public Brain MRI Dataset Providers (Figshare, SARTAJ, and Br35H)
-- Thesis Supervisor
 - Universitas Multimedia Nusantara
 
 ---
