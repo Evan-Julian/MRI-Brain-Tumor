@@ -17,9 +17,7 @@ The proposed framework utilizes DenseNet121 and ResNet50 as deep feature extract
 
 The experiments were conducted on a public MRI dataset consisting of **7,023 images** across four brain tumor categories.
 
----
-
-## ✨ Key Features
+### Key Features
 
 - Hybrid Deep Learning and Machine Learning framework
 - Transfer Learning using DenseNet121 and ResNet50
@@ -301,14 +299,17 @@ The evaluation includes:
 ```text
 MRI-Brain-Tumor/
 
-├── .devcontainer/
-├── Diagram-CRISP-DM.jpg
-├── Diagram-Proposed Model V4.jpg
-├── app.py
-├── best_resnet_20260307-162330.h5
-├── resnet_model.onnx
-├── scaler_resnet.pkl
-├── requirements.txt
+├── .devcontainer/             # Development container configuration
+├── app.py                     # Streamlit application
+├── best_resnet_20260307.h5    # Trained CNN model
+├── resnet_model.onnx          # ONNX inference model
+├── scaler_resnet.pkl          # Feature scaler
+├── Diagram-Proposed Model.jpg # Research framework
+├── Diagram-CRISP-DM.jpg       # Research methodology
+├── Dataset-Distribution.png   # Dataset visualization
+├── Streamlit Interface.png    # Web interface
+├── Grad-Cam Visualization.png # Explainability results
+├── requirements.txt           # Python dependencies
 └── README.md
 ```
 
@@ -336,8 +337,8 @@ This research was conducted under the supervision of the **Big Data Laboratory**
 The author would like to express sincere gratitude to:
 
 - **Ir. Raymond Sunardi, M.CIS.** (Thesis Advisor)
-- Big Data Laboratory, Universitas Multimedia Nusantara
-- Information Systems Study Program, Universitas Multimedia Nusantara
+- Big Data Lab, Information Systems Study Program, Universitas Multimedia Nusantara (UMN).
+- Information Systems Study Program, Universitas Multimedia Nusantara (UMN).
 - Public Brain MRI Dataset Providers (Figshare, SARTAJ, and Br35H)
 - Universitas Multimedia Nusantara
 
