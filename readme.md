@@ -1,18 +1,15 @@
 # Performance Analysis of Hybrid Ensemble DenseNet121 and ResNet50 for Brain Tumor MRI Classification Systems
 
-Official implementation of the undergraduate thesis at Universitas Multimedia Nusantara.
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?logo=tensorflow)
+![Scikit-learn](https://img.shields.io/badge/Scikit--Learn-Latest-F7931E?logo=scikitlearn)
+![Streamlit](https://img.shields.io/badge/Streamlit-App-red?logo=streamlit)
+![License](https://img.shields.io/badge/License-Academic-blue)
 
+Official implementation of the undergraduate thesis at Universitas Multimedia Nusantara.
 ---
 
 ## 📋 Overview
-
-
-![Platform Version](https://img.shields.io/badge/Version-2.4-blue)
-![Python](https://img.shields.io/badge/Python-3.10+-green)
-![Framework](https://img.shields.io/badge/Framework-Streamlit-FF4B4B)
-![Model](https://img.shields.io/badge/Model-ResNet50-orange)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?logo=tensorflow)
-![Scikit-Learn](https://img.shields.io/badge/scikit--learn-Latest-F7931E?logo=scikitlearn)
 
 Brain tumor diagnosis using Magnetic Resonance Imaging (MRI) remains a challenging task due to variations in tumor shape, size, image quality, and the complexity of manual interpretation by radiologists. This research proposes a hybrid Deep Learning and Machine Learning framework for multiclass brain tumor classification using MRI images.
 
@@ -130,6 +127,18 @@ The developed prototype was deployed as **NeuroScan AI**, a Streamlit-based appl
 - Streamlit
 - ONNX Runtime
 
+---
+
+# 🖥️ NeuroScan AI Interface
+
+The developed prototype, **NeuroScan AI**, provides a simple web-based interface for multiclass brain tumor MRI classification. Users can upload an MRI image, and the system performs automatic prediction while displaying the corresponding tumor class.
+
+<p align="center">
+    <img src="Streamlit%20Interface.png" alt="NeuroScan AI Interface" width="95%">
+</p>
+
+---
+
 ## Clone Repository
 
 ```bash
@@ -157,6 +166,10 @@ After launching, open the local URL displayed in the terminal (typically `http:/
 
 ## Brain Tumor MRI Dataset
 
+<p align="center">
+    <img src="Dataset-Distribution.png" alt="Dataset Distribution" width="85%">
+</p>
+
 The experiments were conducted using a merged public Brain MRI dataset consisting of **7,023 MRI images** from four brain tumor categories. The dataset was divided into **70% training data** and **30% testing data** using a holdout validation strategy.
 
 ### Dataset Distribution
@@ -168,10 +181,6 @@ The experiments were conducted using a merged public Brain MRI dataset consistin
 | No Tumor | 1,595 | 405 | 2,000 |
 | Pituitary | 1,457 | 300 | 1,757 |
 | **Total** | **5,712** | **1,311** | **7,023** |
-
-<p align="center">
-    <img src="Dataset-Distribution.png" alt="Dataset Distribution" width="85%">
-</p>
 
 ### Dataset Sources
 
@@ -264,6 +273,15 @@ The **Proposed Ensemble** achieved the best overall performance with an **Accura
 The proposed ensemble model consistently achieved high classification performance across all four brain tumor categories. The **No Tumor** class obtained a perfect recall of **1.0000**, while the **Glioma** and **Pituitary** classes achieved perfect precision (**1.0000**). These results indicate excellent robustness and generalization capability for multiclass brain tumor classification.
 
 ---
+## 🔥 Grad-CAM Visualization
+
+To improve model interpretability, Grad-CAM was applied to visualize the regions that contributed most to the prediction process. The heatmaps indicate that the proposed ensemble model successfully focuses on the tumor regions while suppressing irrelevant background information, providing greater transparency for clinical interpretation.
+
+<p align="center">
+    <img src="Grad-Cam%20Visualization.png" alt="Grad-CAM Visualization" width="95%">
+</p>
+
+---
 
 ## Evaluation Metrics
 
@@ -325,7 +343,7 @@ The author would like to express sincere gratitude to:
 
 ---
 
-# 📧 Contact
+## 📧 Contact
 
 **Muhammad Evan Julian Priyasa**
 
@@ -333,12 +351,9 @@ Information Systems Undergraduate Student
 
 Universitas Multimedia Nusantara
 
-📧 Email: muhammad.evan@student.umn.ac.id
-
-🐙 GitHub: https://github.com/Evan-Julian
-
-💼 LinkedIn: https://www.linkedin.com/in/evanjulianp/
-
+- 📧 Email: muhammad.evan@student.umn.ac.id
+- 💼 LinkedIn: https://www.linkedin.com/in/evanjulianp/
+- 🐙 GitHub: https://github.com/Evan-Julian
 ---
 
 # 📜 License
